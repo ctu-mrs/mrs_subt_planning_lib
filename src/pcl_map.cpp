@@ -111,9 +111,9 @@ void PCLMap::initKDTreeSearch(pcl::PointCloud<pcl::PointXYZ>::Ptr points) {
   /* kdtree->setInputCloud(zero_points); */
   /* kdtree->reset(); */
   if (points->size() > 0) {
-    ROS_INFO("[%s]: initkdtree, point size = %lu", ros::this_node::getName().c_str(), points->size());
+    /* ROS_INFO("[%s]: initkdtree, point size = %lu", ros::this_node::getName().c_str(), points->size()); */
     kdtree->setInputCloud(points->makeShared());
-    ROS_INFO("[%s]: kdtree function end", ros::this_node::getName().c_str());
+    /* ROS_INFO("[%s]: kdtree function end", ros::this_node::getName().c_str()); */
     kd_tree_initialized = true;
   }
 }

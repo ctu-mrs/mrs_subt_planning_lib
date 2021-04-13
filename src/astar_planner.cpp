@@ -148,6 +148,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
     if (secondary_goal_.key.k[0] == 0) {
       ROS_WARN_COND(verbose_, "[AstarPlanner]: Secondary goal in the neighborhood not found. Destination unreachable.");
       if (!enable_planning_to_unreachable_goal_) {
+        ROS_WARN_COND(verbose_, "[AstarPlanner]: Planning to unreachable goal not allowed. Returning empty path.");
         return waypoints;
       } else {
         ROS_INFO_COND(debug_, "[AstarPlanner]: Goal unreachable, but planning to unreachable goal allowed.");
