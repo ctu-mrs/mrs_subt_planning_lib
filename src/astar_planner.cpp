@@ -307,7 +307,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(std::vector<octomap::O
 
   ros::Time start_time = ros::Time::now();
   // TODO: generate pointcloud for reasonable surrounding
-  std::vector<int> map_limits = getMapLimits(key_path, 0, key_path.size(), ceil(2.0 / resolution_), ceil(2.0 / resolution_));
+  std::vector<int> map_limits = getMapLimits(key_path, 0, key_path.size(), ceil(4.0 / resolution_), ceil(4.0 / resolution_));
   ROS_INFO_COND(debug_, "[AstarPlanner]: octomap to pointcloud start");
   std::vector<pcl::PointXYZ> pcl_points =
       octomapToPointcloud(map_limits);  // TODO: replace by detection of maxmin x, maxmin y and maxmin z, for reasonable setting of area
@@ -652,7 +652,7 @@ std::pair<int, int> AstarPlanner::firstUnfeasibleNodeInPath(std::vector<octomap:
       octomapToPointcloud(map_limits);  // TODO: replace by detection of maxmin x, maxmin y and maxmin z, for reasonable setting of are
   if (pcl_points.size() > 0) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr simulated_pointcloud = pcl_map_.convertToPointcloud(pcl_points);
-    ROS_INFO_COND(debug_, "[AstarPlanner]: Map limits: x = [%d, %d], y = [%d, %d], z = [%d, %d]", map_limits[0], map_limits[1],
+    ROS_INFO_COND(true, "[AstarPlanner]: Map limits: x = [%d, %d], y = [%d, %d], z = [%d, %d]", map_limits[0], map_limits[1],
                   map_limits[2], map_limits[3], map_limits[4], map_limits[5]);
     ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree start");
     pcl_map_.initKDTreeSearch(simulated_pointcloud);
@@ -752,7 +752,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getKeyPath(std::vector<Node> plan)
 /* getMapLimits() //{ */
 std::vector<int> AstarPlanner::getMapLimits(std::vector<octomap::OcTreeKey> plan, int start_idx, int end_idx, int xy_reserve, int z_reserve) {
   std::vector<int>   map_limits(6);
-  int                max_abs = 60000;  // FIXME: replace by detection of maximum index in octomap
+  int                max_abs = INT_MAX;  // FIXME: replace by detection of maximum index in octomap
   int                min_x   = INT_MAX;
   int                max_x   = INT_MIN;
   int                min_y   = INT_MAX;
@@ -863,7 +863,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getAdditionalWaypoints3d(octomap::
       }
     }
   }
-  partial_results = getSafestWaypointsBetweenKeys(results);
+  /* partial_results = getSafestWaypointsBetweenKeys(results); */
   return getSafestWaypointsBetweenKeys(results);
 }
 //}

@@ -66,6 +66,8 @@ public:
   void                                insertPoint(pcl::PointXYZ point);
   void                                initCloud();
 
+  bool checkDistanceFromNearestPoint(pcl::PointXYZ point, double safe_dist_xy, double safe_dist_z);
+
 private:
   pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr octree;
   pcl::PointCloud<pcl::PointXYZ>::Ptr                     pcl_cloud;

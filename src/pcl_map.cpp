@@ -110,6 +110,8 @@ void PCLMap::initKDTreeSearch(pcl::PointCloud<pcl::PointXYZ>::Ptr points) {
   /* pcl::PointCloud<pcl::PointXYZ>::Ptr zero_points; */
   /* kdtree->setInputCloud(zero_points); */
   /* kdtree->reset(); */
+  pcl_cloud = points; // FIXME: unnecessarry if not using check distance from nearest point
+
   if (points->size() > 0) {
     /* ROS_INFO("[%s]: initkdtree, point size = %lu", ros::this_node::getName().c_str(), points->size()); */
     kdtree->setInputCloud(points->makeShared());
@@ -121,11 +123,32 @@ void PCLMap::initKDTreeSearch(pcl::PointCloud<pcl::PointXYZ>::Ptr points) {
 double PCLMap::getDistanceFromNearestPoint(pcl::PointXYZ point) {
   std::vector<int>   indices(1);
   std::vector<float> sqr_distances(1);
-  
+
   if (kd_tree_initialized && kdtree->nearestKSearch(point, 1, indices, sqr_distances) > 0) {
     /* ROS_INFO("[%s]: Nearest point search: returning %.2f", ros::this_node::getName().c_str(), sqrt(sqr_distances[0])); */
     return sqrt(sqr_distances[0]);
   } else {
     return FLT_MAX;
+  }
+}
+
+bool PCLMap::checkDistanceFromNearestPoint(pcl::PointXYZ point, double safe_dist_xy, double safe_dist_z) {
+  std::vector<int>   indices(100);
+  std::vector<float> sqr_distances(100);
+  bool res = false;
+  if (kd_tree_initialized) {
+    int n_found = kdtree->radiusSearch(point, safe_dist_xy, indices, sqr_distances, 100);
+    if (n_found > 0 && sqrt(sqr_distances[0]) > safe_dist_z && sqrt(sqr_distances[0]) < safe_dist_xy) {
+      for (int k = 0; k < n_found; k++) {
+        if (abs(point.z - pcl_cloud->points[indices.at(k)].z) < safe_dist_z) {
+          return false;
+        }
+      }
+      return true;
+    }
+    /* ROS_INFO("[%s]: Nearest point search: returning %.2f", ros::this_node::getName().c_str(), sqrt(sqr_distances[0])); */
+    return false;
+  } else {
+    return false;
   }
 }
