@@ -5,6 +5,7 @@ using namespace darpa_planning;
 
 AstarPlanner::AstarPlanner(void) {
   initialized_ = false;
+  verbose_ = false;
 }
 
 AstarPlanner::~AstarPlanner() {
