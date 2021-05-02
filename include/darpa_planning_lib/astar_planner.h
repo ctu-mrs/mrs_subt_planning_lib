@@ -131,9 +131,14 @@ public:
 
   void initialize(octomap::point3d start_point, octomap::point3d goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
                   bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, bool debug,
-                  bool resolution_increased, const bool break_at_timeout = false);
+                  bool resolution_increased, const bool break_at_timeout = false); // for backward compatibility only 
 
-  std::vector<Node>               getNodePath();
+  void initialize(bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, bool debug,
+                  const bool break_at_timeout = false);
+
+  std::vector<Node>               getNodePath(); // for backward compatibility only
+  std::vector<Node>               getNodePath(octomap::point3d start_point, octomap::point3d goal_point, std::shared_ptr<octomap::OcTree> planning_octree, bool resolution_increased = false);
+  std::vector<Node>               getNodePath(std::vector<octomap::point3d>, std::shared_ptr<octomap::OcTree> planning_octree, bool resolution_increased = false);
   std::vector<octomap::point3d>   getWaypointPath(std::vector<Node> node_path);
   std::vector<octomap::point3d>   getWaypointPath(std::vector<octomap::OcTreeKey> key_path);
   std::vector<octomap::point3d>   getLocalPath(std::vector<Node> node_path);
