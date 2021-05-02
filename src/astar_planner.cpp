@@ -193,6 +193,8 @@ std::vector<Node> AstarPlanner::getNodePath(std::vector<octomap::point3d> initia
     clearing_dist_ = safe_dist_;
   }
 
+  double former_planning_timeout = planning_timeout_; // store planning timeout for a single path
+  planning_timeout_ = planning_timeout_ / (initial_waypoints.size() - 1); // change planning timeout according to number of waypoints
   std::vector<Node> waypoints;
   std::vector<Node> partial_waypoints;
   ROS_INFO("[AstarPlanner]: Get node path for multiple waypoints, resolution = %.2f", resolution_);
@@ -208,6 +210,8 @@ std::vector<Node> AstarPlanner::getNodePath(std::vector<octomap::point3d> initia
       waypoints.insert(waypoints.end(), partial_waypoints.begin(), partial_waypoints.end());
     }
   }
+
+  planning_timeout_ = former_planning_timeout; // restore former planning timeout for single path
 
   return waypoints;
 }
