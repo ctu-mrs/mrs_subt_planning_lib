@@ -152,6 +152,7 @@ public:
   std::vector<octomap::OcTreeKey> getKeyPath(std::vector<Node> plan);
   void                            setStartAndGoal(octomap::point3d start_pose, octomap::point3d goal_pose);
   void                            setVerbose(const bool verbose);
+  void                            setSafeDist(const double safe_dist);
 
 protected:
   PCLMap pcl_map_;

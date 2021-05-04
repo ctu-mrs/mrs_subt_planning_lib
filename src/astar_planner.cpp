@@ -1460,6 +1460,12 @@ void AstarPlanner::setVerbose(const bool verbose) {
 }
 //}
 
+/* setSafeDist() //{ */
+void AstarPlanner::setSafeDist(const double safe_dist) {
+  safe_dist_ = safe_dist;
+}
+//}
+
 /* SUPPORTING METHODS //{ */
 
 /* isNodeGoal() //{ */
