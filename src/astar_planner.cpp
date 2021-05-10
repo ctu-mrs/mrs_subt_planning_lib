@@ -141,9 +141,12 @@ Node AstarPlanner::getValidNodeInNeighborhood(Node goal) {
 /* getNodePath() //{ */
 std::vector<Node> AstarPlanner::getNodePath(octomap::point3d start_point, octomap::point3d goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
                                             bool resolution_increased) {
+  
+  std::vector<Node> waypoints;
 
   if (!initialized_) {
-    ROS_WARN("[AstarPlanner]: Cannot start planning, planner not initialized.");
+    ROS_WARN("[AstarPlanner]: Cannot start planning, planner not initialized. Returning empty path.");
+    return waypoints;
   }
 
   planning_octree_ = planning_octree;
@@ -163,7 +166,7 @@ std::vector<Node> AstarPlanner::getNodePath(octomap::point3d start_point, octoma
 
   ROS_INFO("[AstarPlanner]: Get node path start, resolution = %.2f", resolution_);
 
-  std::vector<Node> waypoints = getNodePath();
+  waypoints = getNodePath();
   return waypoints;
 }
 //}
@@ -172,8 +175,11 @@ std::vector<Node> AstarPlanner::getNodePath(octomap::point3d start_point, octoma
 std::vector<Node> AstarPlanner::getNodePath(std::vector<octomap::point3d> initial_waypoints, std::shared_ptr<octomap::OcTree> planning_octree,
                                             bool resolution_increased) {
 
+  std::vector<Node> waypoints;
+
   if (!initialized_) {
-    ROS_WARN("[AstarPlanner]: Cannot start planning, planner not initialized.");
+    ROS_WARN("[AstarPlanner]: Cannot start planning, planner not initialized. Returning empty path.");
+    return waypoints;
   }
 
   if (initial_waypoints.size() < 2) {
@@ -195,7 +201,6 @@ std::vector<Node> AstarPlanner::getNodePath(std::vector<octomap::point3d> initia
 
   double former_planning_timeout = planning_timeout_; // store planning timeout for a single path
   planning_timeout_ = planning_timeout_ / (initial_waypoints.size() - 1); // change planning timeout according to number of waypoints
-  std::vector<Node> waypoints;
   std::vector<Node> partial_waypoints;
   ROS_INFO("[AstarPlanner]: Get node path for multiple waypoints, resolution = %.2f", resolution_);
   for (size_t k = 1; k < initial_waypoints.size(); k++) {
