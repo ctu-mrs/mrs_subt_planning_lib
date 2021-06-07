@@ -10,6 +10,8 @@
 #include <pcl_ros/point_cloud.h>
 #include <pcl/octree/octree_search.h>
 #include <pcl/kdtree/kdtree_flann.h>
+#include <octomap_msgs/conversions.h>
+#include <octomap_msgs/Octomap.h>
 
 namespace darpa_planning
 {
@@ -60,13 +62,16 @@ public:
                                  const double allowed_angle_diff);
 
   pcl::PointCloud<pcl::PointXYZ>::Ptr getPCLCloud();
-  pcl::PointCloud<pcl::PointXYZ>::Ptr convertToPointcloud(const std::vector<pcl::PointXYZ> &points);
   void                                initKDTreeSearch(pcl::PointCloud<pcl::PointXYZ>::Ptr points);
   double                              getDistanceFromNearestPoint(pcl::PointXYZ point);
   void                                insertPoint(pcl::PointXYZ point);
   void                                initCloud();
 
   bool checkDistanceFromNearestPoint(pcl::PointXYZ point, double safe_dist_xy, double safe_dist_z);
+
+  static pcl::PointCloud<pcl::PointXYZ>::Ptr convertVectorToPointcloud(const std::vector<pcl::PointXYZ> &points);
+
+  static pcl::PointCloud<pcl::PointXYZ>::Ptr convertOctomapToPointcloud(std::shared_ptr<octomap::OcTree> input_octree, std::array<octomap::point3d, 2> map_limits);
 
 private:
   pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr octree;

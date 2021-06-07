@@ -4,8 +4,6 @@
 #include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
 #include <mrs_lib/param_loader.h>
-#include <octomap_msgs/conversions.h>
-#include <octomap_msgs/Octomap.h>
 #include <geometry_msgs/PoseArray.h>
 #include <vector>
 #include <queue>
@@ -145,7 +143,7 @@ public:
   std::vector<octomap::OcTreeKey> getSafePath(std::vector<octomap::OcTreeKey> key_path, double safe_dist, int max_iteration, double z_diff_tolerance,
                                               bool fix_goal_point);
   std::vector<octomap::OcTreeKey> getFilteredPlan(std::vector<octomap::OcTreeKey> original_path, int size_of_window, double enabled_filtering_dist);
-  std::pair<int, int> firstUnfeasibleNodeInPath(std::vector<octomap::OcTreeKey> key_waypoints, geometry_msgs::PoseArray pose_array, int n_points_forward,
+  std::pair<int, int> firstUnfeasibleNodeInPath(std::vector<octomap::OcTreeKey> key_waypoints, std::vector<geometry_msgs::Point> pose_array, int n_points_forward,
                                                 octomap::point3d current_pose, double safe_dist_for_replanning_, double critical_dist_for_replanning);
   void                setPlanningOctree(std::shared_ptr<octomap::OcTree> new_map);
   octomap::point3d    getLastFoundGoal();
@@ -216,7 +214,7 @@ protected:
   Node                                         getValidNodeInNeighborhood(Node goal);
   bool                                         checkValidityWithKDTree(Node n);
   bool                                         checkValidityWithKDTree(octomap::OcTreeKey k);
-  std::vector<octomap::OcTreeKey>              getKeyVectorFromCoordinates(geometry_msgs::PoseArray pose_array);
+  std::vector<octomap::OcTreeKey>              getKeyVectorFromCoordinates(std::vector<geometry_msgs::Point> pose_array);
   double                                       getDistFactorOfNeighbors(octomap::OcTreeKey c);
 
   // params
