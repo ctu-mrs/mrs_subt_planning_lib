@@ -242,7 +242,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
       octomapToPointcloud();  // TODO: replace by detection of maxmin x, maxmin y and maxmin z, for reasonable setting of are
   if (pcl_points.size() > 0) {
     ROS_INFO_COND(verbose_, "[AstarPlanner]: Start conversion");
-    pcl::PointCloud<pcl::PointXYZ>::Ptr simulated_pointcloud = PCLMap::convertVectorToPointcloud(pcl_points);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr simulated_pointcloud = PCLMap::pclVectorToPointcloud(pcl_points);
     ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree start");
     pcl_map_.initKDTreeSearch(simulated_pointcloud);
     ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree end");
@@ -421,7 +421,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(std::vector<octomap::O
   ros::Time end_time = ros::Time::now();
   ROS_WARN_COND(verbose_, "Octomap to pointcloud took %.2f ms", (end_time - start_time).toSec() * 1000.0);
   if (pcl_points.size() > 0) {
-    pcl::PointCloud<pcl::PointXYZ>::Ptr simulated_pointcloud = PCLMap::convertVectorToPointcloud(pcl_points);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr simulated_pointcloud = PCLMap::pclVectorToPointcloud(pcl_points);
     ROS_INFO_COND(debug_, "[AstarPlanner]: Map limits: x = [%d, %d], y = [%d, %d], z = [%d, %d]", map_limits[0], map_limits[1], map_limits[2], map_limits[3],
                   map_limits[4], map_limits[5]);
     ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree start");
@@ -754,7 +754,7 @@ std::pair<int, int> AstarPlanner::firstUnfeasibleNodeInPath(std::vector<octomap:
   std::vector<pcl::PointXYZ> pcl_points =
       octomapToPointcloud(map_limits);  // TODO: replace by detection of maxmin x, maxmin y and maxmin z, for reasonable setting of are
   if (pcl_points.size() > 0) {
-    pcl::PointCloud<pcl::PointXYZ>::Ptr simulated_pointcloud = PCLMap::convertVectorToPointcloud(pcl_points);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr simulated_pointcloud = PCLMap::pclVectorToPointcloud(pcl_points);
     ROS_INFO_COND(true, "[AstarPlanner]: Map limits: x = [%d, %d], y = [%d, %d], z = [%d, %d]", map_limits[0], map_limits[1], map_limits[2], map_limits[3],
                   map_limits[4], map_limits[5]);
     ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree start");

@@ -69,9 +69,9 @@ public:
 
   bool checkDistanceFromNearestPoint(pcl::PointXYZ point, double safe_dist_xy, double safe_dist_z);
 
-  static pcl::PointCloud<pcl::PointXYZ>::Ptr convertVectorToPointcloud(const std::vector<pcl::PointXYZ> &points);
+  static pcl::PointCloud<pcl::PointXYZ>::Ptr pclVectorToPointcloud(const std::vector<pcl::PointXYZ> &points);
 
-  static pcl::PointCloud<pcl::PointXYZ>::Ptr convertOctomapToPointcloud(std::shared_ptr<octomap::OcTree> input_octree, std::array<octomap::point3d, 2> map_limits);
+  static pcl::PointCloud<pcl::PointXYZ>::Ptr octomapToPointcloud(std::shared_ptr<octomap::OcTree> input_octree, std::array<octomap::point3d, 2> map_limits);
 
 private:
   pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr octree;

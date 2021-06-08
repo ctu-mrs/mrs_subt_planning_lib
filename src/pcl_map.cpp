@@ -93,7 +93,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::getPCLCloud() {
   return pcl_cloud;
 }
 
-pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::convertVectorToPointcloud(const std::vector<pcl::PointXYZ> &points) {
+pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::pclVectorToPointcloud(const std::vector<pcl::PointXYZ> &points) {
   pcl::PointCloud<pcl::PointXYZ>::Ptr data(new pcl::PointCloud<pcl::PointXYZ>());
   data->height = 1;
   data->width  = points.size();
@@ -140,7 +140,7 @@ bool PCLMap::checkDistanceFromNearestPoint(pcl::PointXYZ point, double safe_dist
     int n_found = kdtree->radiusSearch(point, safe_dist_xy, indices, sqr_distances, 100);
     if (n_found > 0 && sqrt(sqr_distances[0]) > safe_dist_z && sqrt(sqr_distances[0]) < safe_dist_xy) {
       for (int k = 0; k < n_found; k++) {
-        if (abs(point.z - pcl_cloud->points[indices.at(k)].z) < safe_dist_z) {
+        if (abs(point.z - pcl_cloud->points[indices[k]].z) < safe_dist_z) {
           return false;
         }
       }
@@ -153,7 +153,7 @@ bool PCLMap::checkDistanceFromNearestPoint(pcl::PointXYZ point, double safe_dist
   }
 }
 
-pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::convertOctomapToPointcloud(std::shared_ptr<octomap::OcTree> input_octree, std::array<octomap::point3d, 2> map_limits) {
+pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::octomapToPointcloud(std::shared_ptr<octomap::OcTree> input_octree, std::array<octomap::point3d, 2> map_limits) {
   std::vector<pcl::PointXYZ> output_pcl;
   for (int x = map_limits[0].x(); x <= map_limits[1].x(); x++) {
     for (int y = map_limits[0].y(); y <= map_limits[1].y(); y++) {
@@ -176,7 +176,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::convertOctomapToPointcloud(std::shar
   }
 
   if (output_pcl.size() > 0) {
-    return convertVectorToPointcloud(output_pcl);
+    return pclVectorToPointcloud(output_pcl);
   }
 
   ROS_ERROR("[PCL map]: Octomap cannot be converted empty pointcloud received.");
