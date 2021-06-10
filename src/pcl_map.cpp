@@ -118,6 +118,7 @@ void PCLMap::initKDTreeSearch(pcl::PointCloud<pcl::PointXYZ>::Ptr points) {
     /* ROS_INFO("[%s]: kdtree function end", ros::this_node::getName().c_str()); */
     kd_tree_initialized = true;
   }
+  ROS_INFO("[%s]: init kd tree search end", ros::this_node::getName().c_str());
 }
 
 double PCLMap::getDistanceFromNearestPoint(pcl::PointXYZ point) {
@@ -155,9 +156,21 @@ bool PCLMap::checkDistanceFromNearestPoint(pcl::PointXYZ point, double safe_dist
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::octomapToPointcloud(std::shared_ptr<octomap::OcTree> input_octree, std::array<octomap::point3d, 2> map_limits) {
   std::vector<pcl::PointXYZ> output_pcl;
-  for (int x = map_limits[0].x(); x <= map_limits[1].x(); x++) {
-    for (int y = map_limits[0].y(); y <= map_limits[1].y(); y++) {
-      for (int z = map_limits[0].z(); z <= map_limits[1].z(); z++) {
+
+  if (map_limits[0].x() > map_limits[1].x() || map_limits[0].y() > map_limits[1].y() || map_limits[0].z() > map_limits[1].z()) { 
+    ROS_ERROR("[PCL map]: Octomap cannot be converted. Provided map limits cannot be used for definition of bounding box.");
+    return nullptr;
+  }
+
+  if (!input_octree) { 
+    ROS_ERROR("[PCL map]: Octomap cannot be converted. Empty input octree received.");
+  }
+
+  octomap::OcTreeKey min_key = input_octree->coordToKey(map_limits[0]);
+  octomap::OcTreeKey max_key = input_octree->coordToKey(map_limits[1]);
+  for (int x = min_key.k[0]; x <= max_key.k[0]; x++) {
+    for (int y = min_key.k[1]; y <= max_key.k[1]; y++) {
+      for (int z = min_key.k[2]; z <= max_key.k[2]; z++) {
         pcl::PointXYZ      point;
         octomap::OcTreeKey tmp_key;
         tmp_key.k[0] = x;
