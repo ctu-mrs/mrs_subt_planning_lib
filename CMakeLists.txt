@@ -1,7 +1,18 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(darpa_planning_lib)
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -fno-diagnostics-color")
+# Override CXX flags inherited from workspace, if precompiled PCL binaries from debian repos are used
+if (DEFINED ENV{PCL_CROSS_COMPILATION})
+  set(PCL_CROSS_COMPILATION $ENV{PCL_CROSS_COMPILATION})
+else()
+  set(PCL_CROSS_COMPILATION "false")
+endif()
+if(${PCL_CROSS_COMPILATION} STREQUAL "false")
+  message("Using precompiled PCL binaries from debian repos. Overriding catkin workspace CMAKE_CXX_FLAGS.")
+  set(CMAKE_CXX_FLAGS "-std=c++17")
+else()
+  message("Using custom-built PCL binaries. Inheriting all CMAKE_CXX_FLAGS from catkin workspace.")
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
