@@ -163,7 +163,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::octomapToPointcloud(std::shared_ptr<
   }
 
   if (!input_octree) { 
-    ROS_ERROR("[PCL map]: Octomap cannot be converted. Empty input octree received.");
+    ROS_ERROR("[PCL map]: Octomap cannot be converted. Empty input octree received."); // FIXME add retunr
   }
 
   octomap::OcTreeKey min_key = input_octree->coordToKey(map_limits[0]);
