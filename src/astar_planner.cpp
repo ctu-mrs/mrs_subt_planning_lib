@@ -204,13 +204,18 @@ std::vector<Node> AstarPlanner::getNodePath(std::vector<octomap::point3d> initia
   std::vector<Node> partial_waypoints;
   ROS_INFO("[AstarPlanner]: Get node path for multiple waypoints, resolution = %.2f", resolution_);
   for (size_t k = 1; k < initial_waypoints.size(); k++) {
-    start_.pose   = k == 1 ? initial_waypoints[k-1] : waypoints.back().pose;
+    start_.pose   = waypoints.size() == 0 ? initial_waypoints[0] : waypoints.back().pose;
     goal_.pose    = initial_waypoints[k];
     partial_waypoints = getNodePath();
 
     if (partial_waypoints.size() == 0) {
-      ROS_WARN_COND(verbose_, "[AstarPlanner]: Partial path not found, returning found path.");
-      return waypoints;
+      if (waypoints.size() == 0) { 
+        ROS_WARN("[AstarPlanner]: Partial path to goal %lu not found proceeding to next point.", k);
+        continue; 
+      } else {
+        ROS_WARN("[AstarPlanner]: Partial path not found, returning found path.");
+        return waypoints;
+      }
     } else {
       waypoints.insert(waypoints.end(), partial_waypoints.begin(), partial_waypoints.end());
     }
