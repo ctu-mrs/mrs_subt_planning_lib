@@ -11,6 +11,7 @@
 #include <unordered_set>
 #include <visualization_msgs/MarkerArray.h>
 #include "darpa_planning_lib/pcl_map.h"
+#include <iostream>
 
 
 namespace darpa_planning
@@ -100,6 +101,14 @@ public:
     }
   }
 
+  std::vector<octomap::point3d> getAllNodes() { 
+    std::vector<octomap::point3d> nodes;
+    for (auto p : this->c) { 
+      nodes.push_back(p.pose);
+    }
+    return nodes;
+  }
+
   struct node_equal : std::unary_function<Node, bool>
   {
     node_equal(const Node& n_a) : n_a_(n_a) {
@@ -160,6 +169,8 @@ protected:
   ros::Publisher pub_pc;
   ros::Publisher pub_octree;
   ros::Publisher pub_debug;
+  ros::Publisher pub_open_list;
+  ros::Publisher pub_closed_list;
 
   std::shared_ptr<octomap::OcTree> planning_octree_;
   GridParams                       grid_params_;
@@ -216,6 +227,7 @@ protected:
   bool                                         checkValidityWithKDTree(octomap::OcTreeKey k);
   std::vector<octomap::OcTreeKey>              getKeyVectorFromCoordinates(std::vector<geometry_msgs::Point> pose_array);
   double                                       getDistFactorOfNeighbors(octomap::OcTreeKey c);
+  void publishOpenAndClosedList(AstarPriorityQueue open_list, std::unordered_set<Node, NodeHasher> closed_list);
 
   // params
   bool   use_neighborhood_6_;

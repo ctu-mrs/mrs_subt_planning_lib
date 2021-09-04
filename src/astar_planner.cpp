@@ -39,7 +39,9 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
   initialized_ = true;
 
   ros::NodeHandle nh("~");
-  pub_debug = nh.advertise<visualization_msgs::MarkerArray>("debug_points", 1);
+  pub_debug       = nh.advertise<visualization_msgs::MarkerArray>("debug_points", 1);
+  pub_open_list   = nh.advertise<visualization_msgs::Marker>("open_list", 1);
+  pub_closed_list = nh.advertise<visualization_msgs::Marker>("closed_list", 1);
 }
 //}
 
@@ -57,7 +59,9 @@ void AstarPlanner::initialize(bool enable_planning_to_unreachable_goal, double p
   initialized_ = true;
 
   ros::NodeHandle nh("~");
-  pub_debug = nh.advertise<visualization_msgs::MarkerArray>("debug_points", 1);
+  pub_debug       = nh.advertise<visualization_msgs::MarkerArray>("debug_points", 1);
+  pub_open_list   = nh.advertise<visualization_msgs::Marker>("open_list", 1);
+  pub_closed_list = nh.advertise<visualization_msgs::Marker>("closed_list", 1);
 }
 //}
 
@@ -72,7 +76,7 @@ bool AstarPlanner::isNodeValid(Node n) {
   if (isNodeInTheNeighborhood(n.key, start_.key, clearing_dist_)) {  // unknown
     return true;
   } else if (planning_octree_->search(n.key) == NULL) {
-    return false;
+    return true;
   } else if (planning_octree_->isNodeOccupied(planning_octree_->search(n.key))) {  // occupied
     return false;
   }
@@ -89,7 +93,7 @@ bool AstarPlanner::checkValidityWithNeighborhood(Node n) {
   if (isNodeInTheNeighborhood(n.key, start_.key, clearing_dist_)) {  // unknown
     return true;
   } else if (planning_octree_->search(n.key) == NULL) {
-    return false;
+    return true;
   }
   return checkValidityWithKDTree(n);
 }
@@ -100,7 +104,7 @@ bool AstarPlanner::checkValidityWithNeighborhood(octomap::OcTreeKey k) {
   if (isNodeInTheNeighborhood(k, start_.key, clearing_dist_)) {  // unknown
     return true;
   } else if (planning_octree_->search(k) == NULL) {
-    return false;
+    return true;
   }
   return checkValidityWithKDTree(k);
 }
@@ -141,7 +145,7 @@ Node AstarPlanner::getValidNodeInNeighborhood(Node goal) {
 /* getNodePath() //{ */
 std::vector<Node> AstarPlanner::getNodePath(octomap::point3d start_point, octomap::point3d goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
                                             bool resolution_increased) {
-  
+
   std::vector<Node> waypoints;
 
   if (!initialized_) {
@@ -155,8 +159,8 @@ std::vector<Node> AstarPlanner::getNodePath(octomap::point3d start_point, octoma
   planning_octree_->getMetricMax(grid_params_.max_x, grid_params_.max_y, grid_params_.max_z);
   resolution_ = planning_octree_->getResolution();
 
-  start_.pose      = start_point;
-  goal_.pose       = goal_point;
+  start_.pose = start_point;
+  goal_.pose  = goal_point;
 
   // probably unused
   resolution_increased_ = resolution_increased;
@@ -199,19 +203,19 @@ std::vector<Node> AstarPlanner::getNodePath(std::vector<octomap::point3d> initia
     clearing_dist_ = safe_dist_;
   }
 
-  double former_planning_timeout = planning_timeout_; // store planning timeout for a single path
-  planning_timeout_ = planning_timeout_ / (initial_waypoints.size() - 1); // change planning timeout according to number of waypoints
+  double former_planning_timeout = planning_timeout_;                                   // store planning timeout for a single path
+  planning_timeout_              = planning_timeout_ / (initial_waypoints.size() - 1);  // change planning timeout according to number of waypoints
   std::vector<Node> partial_waypoints;
   ROS_INFO("[AstarPlanner]: Get node path for multiple waypoints, resolution = %.2f", resolution_);
   for (size_t k = 1; k < initial_waypoints.size(); k++) {
-    start_.pose   = waypoints.size() == 0 ? initial_waypoints[0] : waypoints.back().pose;
-    goal_.pose    = initial_waypoints[k];
+    start_.pose       = waypoints.size() == 0 ? initial_waypoints[0] : waypoints.back().pose;
+    goal_.pose        = initial_waypoints[k];
     partial_waypoints = getNodePath();
 
     if (partial_waypoints.size() == 0) {
-      if (waypoints.size() == 0) { 
+      if (waypoints.size() == 0) {
         ROS_WARN("[AstarPlanner]: Partial path to goal %lu not found proceeding to next point.", k);
-        continue; 
+        continue;
       } else {
         ROS_WARN("[AstarPlanner]: Partial path not found, returning found path.");
         return waypoints;
@@ -221,11 +225,63 @@ std::vector<Node> AstarPlanner::getNodePath(std::vector<octomap::point3d> initia
     }
   }
 
-  planning_timeout_ = former_planning_timeout; // restore former planning timeout for single path
+  planning_timeout_ = former_planning_timeout;  // restore former planning timeout for single path
 
   return waypoints;
 }
 //}
+
+void AstarPlanner::publishOpenAndClosedList(AstarPriorityQueue open_list, std::unordered_set<Node, NodeHasher> closed_list) {
+  visualization_msgs::Marker::Ptr msg = boost::make_shared<visualization_msgs::Marker>();
+
+  ROS_INFO("[%s]: Publish open and closed list start", ros::this_node::getName().c_str());
+  msg->header.frame_id = "uav1/aloam_origin";
+  msg->header.stamp    = ros::Time::now();
+
+  msg->action  = visualization_msgs::Marker::ADD;
+  msg->type    = visualization_msgs::Marker::SPHERE_LIST;
+  msg->scale.x = msg->scale.y = msg->scale.z = 0.10;
+  msg->color.r                               = 0;
+  msg->color.g                               = 1;
+  msg->color.b                               = 0;
+  msg->color.a                               = 1;
+  msg->pose.orientation.w                    = 1;
+  msg->id                                    = 1;
+  msg->points.resize(open_list.size());
+  std::vector<octomap::point3d> open_list_poses = open_list.getAllNodes();
+  for (int k = 0; k < open_list_poses.size(); k++) {
+    msg->points[k].x = open_list_poses[k].x();
+    msg->points[k].y = open_list_poses[k].y();
+    msg->points[k].z = open_list_poses[k].z();
+  }
+
+  pub_open_list.publish(msg);
+
+  visualization_msgs::Marker::Ptr msg_c = boost::make_shared<visualization_msgs::Marker>();
+
+  msg_c->header.frame_id = "uav1/aloam_origin";
+  msg_c->header.stamp    = ros::Time::now();
+
+  msg_c->action  = visualization_msgs::Marker::ADD;
+  msg_c->type    = visualization_msgs::Marker::SPHERE_LIST;
+  msg_c->scale.x = msg_c->scale.y = msg_c->scale.z = 0.10;
+  msg_c->color.r                                   = 1;
+  msg_c->color.g                                   = 0;
+  msg_c->color.b                                   = 0;
+  msg_c->color.a                                   = 1;
+  msg_c->pose.orientation.w                        = 1;
+  msg_c->id                                        = 1;
+  /* msg_c->points.resize(closed_list.size()); */
+  for (auto p : closed_list) {
+    geometry_msgs::Point point_center;
+    point_center.x = p.pose.x();
+    point_center.y = p.pose.y();
+    point_center.z = p.pose.z();
+    msg_c->points.push_back(point_center);
+  }
+
+  pub_closed_list.publish(msg_c);
+}
 
 /* getNodePath() //{ */
 std::vector<Node> AstarPlanner::getNodePath() {
@@ -290,9 +346,11 @@ std::vector<Node> AstarPlanner::getNodePath() {
   ROS_INFO_COND(debug_, "[AstarPlanner]: Start key = [%d, %d, %d]", start_.key.k[0], start_.key.k[1], start_.key.k[2]);
   ROS_INFO_COND(debug_, "[AstarPlanner]: Goal key = [%d, %d, %d]", goal_.key.k[0], goal_.key.k[1], goal_.key.k[2]);
   while (!open_list.empty()) {
-    if (loop_counter % 1000 == 0) {
-      ROS_INFO_COND(debug_, "[AstarPlanner]: Loop counter = %d, open list size = %lu, closed_list_size = %lu", loop_counter, open_list.size(),
+    if (loop_counter % 10 == 0) {
+      ROS_INFO_COND(true || debug_, "[AstarPlanner]: Loop counter = %d, open list size = %lu, closed_list_size = %lu", loop_counter, open_list.size(),
                     closed_list.size());
+      publishOpenAndClosedList(open_list, closed_list);
+      getchar();
       if ((ros::Time::now() - start_time).toSec() > planning_timeout_) {
         ROS_WARN("[AstarPlanner]: Planning timeout reached.");
         break;
@@ -331,10 +389,11 @@ std::vector<Node> AstarPlanner::getNodePath() {
         closed_list.erase(*it);
       }
       it->f_cost = new_cost;
-      it->h_cost = manhattanCost(*it);
+      it->h_cost = 2.0*euclideanCost(*it);
       /* it->g_cost = it->f_cost + it->h_cost; */
       it->g_cost     = fmax(it->f_cost + it->h_cost + (-1 + (1 - 1 / it->h_cost)), 0.0);
       it->parent_key = current.key;
+      it->pose       = planning_octree_->keyToCoord(it->key);
       if (it->h_cost < nearest.h_cost) {
         nearest = *it;
       }
@@ -380,6 +439,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
                   waypoints[counter].key.k[1], waypoints[counter].key.k[2]);
     /* sleep(0.1); */
   }
+
   // reverse the path from end to beginning
   ROS_INFO_COND(debug_, "[AstarPlanner]: reversing waypoints");
   std::reverse(waypoints.begin(), waypoints.end());
@@ -809,8 +869,7 @@ std::vector<pcl::PointXYZ> AstarPlanner::octomapToPointcloud(std::vector<int> ma
         tmp_key.k[0] = x;
         tmp_key.k[1] = y;
         tmp_key.k[2] = z;
-        if (planning_octree_->search(tmp_key) == NULL ||
-            (planning_octree_->search(tmp_key) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(tmp_key)))) {
+        if ((planning_octree_->search(tmp_key) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(tmp_key)))) {
           octomap::point3d octomap_point = planning_octree_->keyToCoord(tmp_key);
           point.x                        = octomap_point.x();
           point.y                        = octomap_point.y();
@@ -832,8 +891,7 @@ std::vector<pcl::PointXYZ> AstarPlanner::octomapToPointcloud() {
     if (it.getDepth() != planning_octree_->getTreeDepth())
       continue;
 
-    if (planning_octree_->search(it.getKey()) == NULL ||
-        (planning_octree_->search(it.getKey()) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(it.getKey())))) {
+    if ((planning_octree_->search(it.getKey()) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(it.getKey())))) {
       pcl::PointXYZ    point;
       octomap::point3d octomap_point = planning_octree_->keyToCoord(it.getKey());
       point.x                        = octomap_point.x();
@@ -1498,13 +1556,13 @@ bool AstarPlanner::isNodeGoal(Node n, Node goal) {
 
 /* euclideanCost() //{ */
 double AstarPlanner::euclideanCost(Node n) {
-  return sqrt(pow(n.key[0] - goal_.key.k[0], 2) + pow(n.key[1] - goal_.key.k[1], 2) + pow(n.key[2] - goal_.key.k[2], 2));
+  return sqrt(pow(n.key.k[0] - goal_.key.k[0], 2) + pow(n.key.k[1] - goal_.key.k[1], 2) + pow(n.key.k[2] - goal_.key.k[2], 2));
 }
 //}
 
 /* manhattanCost() //{ */
 double AstarPlanner::manhattanCost(Node n) {
-  return fabs(n.key[0] - goal_.key.k[0]) + fabs(n.key[1] - goal_.key.k[1]) + fabs(n.key[2] - goal_.key.k[2]);
+  return fabs(n.key.k[0] - goal_.key.k[0]) + fabs(n.key.k[1] - goal_.key.k[1]) + fabs(n.key.k[2] - goal_.key.k[2]);
 }
 //}
 
