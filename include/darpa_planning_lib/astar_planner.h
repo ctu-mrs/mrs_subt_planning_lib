@@ -163,7 +163,7 @@ public:
   void                            setStartAndGoal(octomap::point3d start_pose, octomap::point3d goal_pose);
   void                            setVerbose(const bool verbose);
   void                            setSafeDist(const double safe_dist);
-  void                            setAstarAdmissibility(const double asar_admissibility);
+  void                            setAstarAdmissibility(const double astar_admissibility);
 
 protected:
   PCLMap pcl_map_;
@@ -243,6 +243,7 @@ protected:
   bool   verbose_;
   bool   initialized_;
   double safe_dist_;
+  double safe_dist_prev_;
   double clearing_dist_;
   bool   resolution_increased_;
   bool   break_at_timeout_;

@@ -27,6 +27,7 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
   planning_timeout_                    = planning_timeout;
   debug_                               = debug;
   safe_dist_                           = safe_dist;
+  safe_dist_prev_                      = safe_dist_;
   clearing_dist_                       = clearing_dist;
   resolution_increased_                = resolution_increased;
   break_at_timeout_                    = break_at_timeout;
@@ -52,6 +53,7 @@ void AstarPlanner::initialize(bool enable_planning_to_unreachable_goal, double p
   planning_timeout_                    = planning_timeout;
   debug_                               = debug;
   safe_dist_                           = safe_dist;
+  safe_dist_prev_                      = safe_dist_;
   clearing_dist_                       = clearing_dist;
   break_at_timeout_                    = break_at_timeout;
 
@@ -76,7 +78,7 @@ bool AstarPlanner::isNodeValid(const Node& n) {
   if (isNodeInTheNeighborhood(n.key, start_.key, clearing_dist_)) {  // unknown
     return true;
   } else if (planning_octree_->search(n.key) == NULL) {
-    return true;
+    return false;
   } else if (planning_octree_->isNodeOccupied(planning_octree_->search(n.key))) {  // occupied
     return false;
   }
@@ -93,7 +95,7 @@ bool AstarPlanner::checkValidityWithNeighborhood(const Node& n) {
   if (isNodeInTheNeighborhood(n.key, start_.key, clearing_dist_)) {  // unknown
     return true;
   } else if (planning_octree_->search(n.key) == NULL) {
-    return true;
+    return false;
   }
   return checkValidityWithKDTree(n);
 }
@@ -104,7 +106,7 @@ bool AstarPlanner::checkValidityWithNeighborhood(const octomap::OcTreeKey& k) {
   if (isNodeInTheNeighborhood(k, start_.key, clearing_dist_)) {  // unknown
     return true;
   } else if (planning_octree_->search(k) == NULL) {
-    return true;
+    return false;
   }
   return checkValidityWithKDTree(k);
 }
@@ -171,6 +173,11 @@ std::vector<Node> AstarPlanner::getNodePath(const octomap::point3d& start_point,
   ROS_INFO("[AstarPlanner]: Get node path start, resolution = %.2f", resolution_);
 
   waypoints = getNodePath();
+
+  if (waypoints.size() > 5) { 
+    safe_dist_prev_ = safe_dist_;
+  }
+
   return waypoints;
 }
 //}
@@ -226,6 +233,10 @@ std::vector<Node> AstarPlanner::getNodePath(const std::vector<octomap::point3d>&
   }
 
   planning_timeout_ = former_planning_timeout;  // restore former planning timeout for single path
+
+  if (waypoints.size() > 5) { 
+    safe_dist_prev_ = safe_dist_;
+  }
 
   return waypoints;
 }
@@ -332,6 +343,10 @@ std::vector<Node> AstarPlanner::getNodePath() {
     }
   }
 
+  if (!checkValidityWithNeighborhood(start_) && safe_dist_prev_ < safe_dist_) { // prevents stuck due to increasing safe_dist
+    safe_dist_ = safe_dist_prev_;
+  }
+
   if (isNodeGoal(start_)) {
     ROS_WARN("[AstarPlanner]: Planner initialized at goal position. Returning empty plan.");
     return waypoints;
@@ -394,7 +409,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
       /* it->g_cost = it->f_cost + it->h_cost; */
       it->g_cost     = fmax(it->f_cost + it->h_cost + (-1 + (1 - 1 / it->h_cost)), 0.0);
       it->parent_key = current.key;
-      it->pose       = planning_octree_->keyToCoord(it->key);
+      it->pose       = planning_octree_->keyToCoord(it->key); // needed only for the visualization, otherwise unused
       if (it->h_cost < nearest.h_cost) {
         nearest = *it;
       }
@@ -872,7 +887,7 @@ std::vector<pcl::PointXYZ> AstarPlanner::octomapToPointcloud(const std::vector<i
         tmp_key.k[0] = x;
         tmp_key.k[1] = y;
         tmp_key.k[2] = z;
-        if ((planning_octree_->search(tmp_key) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(tmp_key)))) {
+        if (planning_octree_->search(tmp_key) == NULL || (planning_octree_->search(tmp_key) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(tmp_key)))) {
           octomap::point3d octomap_point = planning_octree_->keyToCoord(tmp_key);
           point.x                        = octomap_point.x();
           point.y                        = octomap_point.y();
@@ -894,7 +909,7 @@ std::vector<pcl::PointXYZ> AstarPlanner::octomapToPointcloud() {
     if (it.getDepth() != planning_octree_->getTreeDepth())
       continue;
 
-    if ((planning_octree_->search(it.getKey()) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(it.getKey())))) {
+    if (planning_octree_->search(it.getKey()) == NULL || (planning_octree_->search(it.getKey()) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(it.getKey())))) {
       pcl::PointXYZ    point;
       octomap::point3d octomap_point = planning_octree_->keyToCoord(it.getKey());
       point.x                        = octomap_point.x();
