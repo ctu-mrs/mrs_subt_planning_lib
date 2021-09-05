@@ -101,9 +101,9 @@ public:
     }
   }
 
-  std::vector<octomap::point3d> getAllNodes() { 
+  std::vector<octomap::point3d> getAllNodes() {
     std::vector<octomap::point3d> nodes;
-    for (auto p : this->c) { 
+    for (auto p : this->c) {
       nodes.push_back(p.pose);
     }
     return nodes;
@@ -138,33 +138,39 @@ public:
 
   void initialize(octomap::point3d start_point, octomap::point3d goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
                   bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, bool debug,
-                  bool resolution_increased, const bool break_at_timeout = false); // for backward compatibility only 
+                  bool resolution_increased, const bool break_at_timeout = false);  // for backward compatibility only
 
   void initialize(bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, bool debug,
                   const bool break_at_timeout = false);
 
-  std::vector<Node>               getNodePath(); // for backward compatibility only
-  std::vector<Node>               getNodePath(const octomap::point3d& start_point, const octomap::point3d& goal_point, std::shared_ptr<octomap::OcTree> planning_octree, bool resolution_increased = false);
-  std::vector<Node>               getNodePath(std::vector<octomap::point3d>, std::shared_ptr<octomap::OcTree> planning_octree, bool resolution_increased = false);
-  std::vector<octomap::point3d>   getWaypointPath(std::vector<Node> node_path);
-  std::vector<octomap::point3d>   getWaypointPath(std::vector<octomap::OcTreeKey> key_path);
-  std::vector<octomap::point3d>   getLocalPath(std::vector<Node> node_path);
-  std::vector<octomap::OcTreeKey> getSafePath(std::vector<octomap::OcTreeKey> key_path, double safe_dist, int max_iteration, double z_diff_tolerance,
+  std::vector<Node> getNodePath();  // for backward compatibility only
+  std::vector<Node> getNodePath(const octomap::point3d& start_point, const octomap::point3d& goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
+                                bool resolution_increased = false);
+  std::vector<Node> getNodePath(const std::vector<octomap::point3d>& initial_waypoints, std::shared_ptr<octomap::OcTree> planning_octree,
+                                bool resolution_increased = false);
+  std::vector<octomap::point3d>   getWaypointPath(const std::vector<Node>& node_path);
+  std::vector<octomap::point3d>   getWaypointPath(const std::vector<octomap::OcTreeKey>& key_path);
+  std::vector<octomap::point3d>   getLocalPath(const std::vector<Node>& node_path);
+  std::vector<octomap::OcTreeKey> getSafePath(const std::vector<octomap::OcTreeKey>& key_path, double safe_dist, int max_iteration, double z_diff_tolerance,
                                               bool fix_goal_point);
-  std::vector<octomap::OcTreeKey> getFilteredPlan(std::vector<octomap::OcTreeKey> original_path, int size_of_window, double enabled_filtering_dist);
-  std::pair<int, int> firstUnfeasibleNodeInPath(std::vector<octomap::OcTreeKey> key_waypoints, std::vector<geometry_msgs::Point> pose_array, int n_points_forward,
-                                                const octomap::point3d& current_pose, double safe_dist_for_replanning_, double critical_dist_for_replanning);
+  std::vector<octomap::OcTreeKey> getFilteredPlan(const std::vector<octomap::OcTreeKey>& original_path, int size_of_window, double enabled_filtering_dist);
+  std::pair<int, int> firstUnfeasibleNodeInPath(const std::vector<octomap::OcTreeKey>& key_waypoints, const std::vector<geometry_msgs::Point>& pose_array,
+                                                int n_points_forward, const octomap::point3d& current_pose, double safe_dist_for_replanning_,
+                                                double critical_dist_for_replanning);
   void                setPlanningOctree(std::shared_ptr<octomap::OcTree> new_map);
   octomap::point3d    getLastFoundGoal();
-  std::vector<octomap::OcTreeKey> getKeyPath(std::vector<Node> plan);
+  std::vector<octomap::OcTreeKey> getKeyPath(const std::vector<Node>& plan);
   void                            setStartAndGoal(octomap::point3d start_pose, octomap::point3d goal_pose);
   void                            setVerbose(const bool verbose);
   void                            setSafeDist(const double safe_dist);
+  void                            setAstarAdmissibility(const double asar_admissibility);
 
 protected:
   PCLMap pcl_map_;
 
   double max_planning_time;
+
+  double astar_admissibility_ = 1.5;
 
   ros::Publisher pub_pc;
   ros::Publisher pub_octree;
@@ -197,10 +203,10 @@ protected:
   double                          nodeDistance(const Node& a, const Node& b);
   bool                            checkValidityWithNeighborhood(const Node& a);
   bool                            checkValidityWithNeighborhood(const octomap::OcTreeKey& k);
-  std::vector<pcl::PointXYZ>      octomapToPointcloud(std::vector<int> map_limits);
+  std::vector<pcl::PointXYZ>      octomapToPointcloud(const std::vector<int>& map_limits);
   std::vector<pcl::PointXYZ>      octomapToPointcloud();
-  std::vector<int>                getMapLimits(std::vector<octomap::OcTreeKey> plan, int start_index, int end_index, int xy_reserve, int z_reserve);
-  bool                            checkLimits(std::vector<int> map_limits, const Node& n);
+  std::vector<int>                getMapLimits(const std::vector<octomap::OcTreeKey>& plan, int start_index, int end_index, int xy_reserve, int z_reserve);
+  bool                            checkLimits(const std::vector<int>& map_limits, const Node& n);
   bool                            isNodeInTheNeighborhood(const octomap::OcTreeKey& n, const octomap::OcTreeKey& center, double dist);
   octomap::OcTreeKey              getBestNeighbor(const octomap::OcTreeKey& k);
   int                             isConnectivityMaintained(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2);
@@ -217,16 +223,16 @@ protected:
   std::vector<int>                getDifferenceInCoordinates(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2);
   std::vector<std::vector<octomap::OcTreeKey>> getPossibleWaypointsForTwoDiffCoord(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2);
   std::vector<std::vector<octomap::OcTreeKey>> getPossibleWaypointsForThreeDiffCoord(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2);
-  std::vector<octomap::OcTreeKey>              getSafestWaypointsBetweenKeys(std::vector<std::vector<octomap::OcTreeKey>> possible_waypoints);
-  std::vector<octomap::OcTreeKey>              getStraightenKeyPath(std::vector<octomap::OcTreeKey> key_path);
+  std::vector<octomap::OcTreeKey>              getSafestWaypointsBetweenKeys(const std::vector<std::vector<octomap::OcTreeKey>>& possible_waypoints);
+  std::vector<octomap::OcTreeKey>              getStraightenKeyPath(const std::vector<octomap::OcTreeKey>& key_path);
   bool                                         areKeysDiagonalNeighbors(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2);
-  std::vector<octomap::OcTreeKey>              getSmoothPath(std::vector<octomap::OcTreeKey> path);
+  std::vector<octomap::OcTreeKey>              getSmoothPath(const std::vector<octomap::OcTreeKey>& path);
   Node                                         getValidNodeInNeighborhood(const Node& goal);
   bool                                         checkValidityWithKDTree(const Node& n);
   bool                                         checkValidityWithKDTree(const octomap::OcTreeKey& k);
-  std::vector<octomap::OcTreeKey>              getKeyVectorFromCoordinates(std::vector<geometry_msgs::Point> pose_array);
+  std::vector<octomap::OcTreeKey>              getKeyVectorFromCoordinates(const std::vector<geometry_msgs::Point>& pose_array);
   double                                       getDistFactorOfNeighbors(const octomap::OcTreeKey& c);
-  void publishOpenAndClosedList(AstarPriorityQueue open_list, std::unordered_set<Node, NodeHasher> closed_list);
+  void                                         publishOpenAndClosedList(AstarPriorityQueue open_list, std::unordered_set<Node, NodeHasher> closed_list);
 
   // params
   bool   use_neighborhood_6_;
@@ -261,17 +267,17 @@ protected:
   std::vector<std::vector<std::vector<int>>> getObstacleConditionsForDiagonalMove();
   std::vector<std::vector<std::vector<int>>> getObstacleConditionsFor2dDiagonalMove();
   std::vector<std::vector<int>>              getCubeForMoves();
-  std::vector<Node>                         getPossibleSuccessors(const octomap::OcTreeKey& parent, const octomap::OcTreeKey& current);
-  octomap::OcTreeKey                         getSafestWaypointsBetweenKeys(std::vector<octomap::OcTreeKey> possible_waypoints);
+  std::vector<Node>                          getPossibleSuccessors(const octomap::OcTreeKey& parent, const octomap::OcTreeKey& current);
+  octomap::OcTreeKey                         getSafestWaypointsBetweenKeys(const std::vector<octomap::OcTreeKey>& possible_waypoints);
   octomap::OcTreeKey                         getConnectionNode3d(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2);
   std::vector<octomap::OcTreeKey>            getAdditionalWaypoints3d(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2);
   octomap::OcTreeKey                         getBestNeighborEscape(const octomap::OcTreeKey& c, const octomap::OcTreeKey& prev);
-  void                                       publishPoints(const octomap::OcTreeKey& current, const octomap::OcTreeKey& best_neigh, const octomap::OcTreeKey& last_added,
-                                                           std::vector<octomap::OcTreeKey> additional_waypoints);
-  std::vector<octomap::OcTreeKey>            getFilteredNeighborhoodPlan(std::vector<octomap::OcTreeKey> plan);
-  bool                                       areKeysInTwoStepsDistance(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2);
-  std::vector<octomap::OcTreeKey>            getFilteredNeighborhoodPlan2(std::vector<octomap::OcTreeKey> original_path);
-  std::vector<octomap::OcTreeKey>            getZzFilteredPlan(std::vector<octomap::OcTreeKey> original_path, double tolerance);
+  void                            publishPoints(const octomap::OcTreeKey& current, const octomap::OcTreeKey& best_neigh, const octomap::OcTreeKey& last_added,
+                                                const std::vector<octomap::OcTreeKey>& additional_waypoints);
+  std::vector<octomap::OcTreeKey> getFilteredNeighborhoodPlan(const std::vector<octomap::OcTreeKey>& plan);
+  bool                            areKeysInTwoStepsDistance(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2);
+  std::vector<octomap::OcTreeKey> getFilteredNeighborhoodPlan2(const std::vector<octomap::OcTreeKey>& original_path);
+  std::vector<octomap::OcTreeKey> getZzFilteredPlan(const std::vector<octomap::OcTreeKey>& original_path, double tolerance);
 };
 }  // namespace darpa_planning
 
