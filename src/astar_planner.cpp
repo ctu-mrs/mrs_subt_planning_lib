@@ -66,7 +66,7 @@ void AstarPlanner::initialize(bool enable_planning_to_unreachable_goal, double p
 //}
 
 /* isNodeValid //{ */
-bool AstarPlanner::isNodeValid(Node n) {
+bool AstarPlanner::isNodeValid(const Node& n) {
   // out of bounds
   octomap::point3d p = planning_octree_->keyToCoord(n.key);
   if (p.x() < grid_params_.min_x || p.x() > grid_params_.max_x || p.y() < grid_params_.min_y || p.y() > grid_params_.max_y || p.z() < grid_params_.min_z ||
@@ -89,7 +89,7 @@ bool AstarPlanner::isNodeValid(Node n) {
 //}
 
 /* checkValidityWithNeighborhood() //{ */
-bool AstarPlanner::checkValidityWithNeighborhood(Node n) {
+bool AstarPlanner::checkValidityWithNeighborhood(const Node& n) {
   if (isNodeInTheNeighborhood(n.key, start_.key, clearing_dist_)) {  // unknown
     return true;
   } else if (planning_octree_->search(n.key) == NULL) {
@@ -100,7 +100,7 @@ bool AstarPlanner::checkValidityWithNeighborhood(Node n) {
 //}
 
 /* checkValidityWithNeighborhood() //{ */
-bool AstarPlanner::checkValidityWithNeighborhood(octomap::OcTreeKey k) {
+bool AstarPlanner::checkValidityWithNeighborhood(const octomap::OcTreeKey& k) {
   if (isNodeInTheNeighborhood(k, start_.key, clearing_dist_)) {  // unknown
     return true;
   } else if (planning_octree_->search(k) == NULL) {
@@ -111,7 +111,7 @@ bool AstarPlanner::checkValidityWithNeighborhood(octomap::OcTreeKey k) {
 //}
 
 /* checkValidityWitKDTree() //{ */
-bool AstarPlanner::checkValidityWithKDTree(Node n) {
+bool AstarPlanner::checkValidityWithKDTree(const Node& n) {
   if (pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(n.key)) < safe_dist_) {
     return false;
   }
@@ -120,7 +120,7 @@ bool AstarPlanner::checkValidityWithKDTree(Node n) {
 //}
 
 /* checkValidityWitKDTree() //{ */
-bool AstarPlanner::checkValidityWithKDTree(octomap::OcTreeKey k) {
+bool AstarPlanner::checkValidityWithKDTree(const octomap::OcTreeKey& k) {
   if (pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(k)) < safe_dist_) {
     return false;
   }
@@ -129,7 +129,7 @@ bool AstarPlanner::checkValidityWithKDTree(octomap::OcTreeKey k) {
 //}
 
 /* getValidNodeInNeighborhood() //{ */
-Node AstarPlanner::getValidNodeInNeighborhood(Node goal) {
+Node AstarPlanner::getValidNodeInNeighborhood(const Node& goal) {
   std::vector<Node> neighbors = getNeighborhood26(goal);
   for (std::vector<Node>::iterator it = neighbors.begin(); it != neighbors.end(); ++it) {
     if (isNodeValid(*it) && checkValidityWithNeighborhood(*it)) {
@@ -143,7 +143,7 @@ Node AstarPlanner::getValidNodeInNeighborhood(Node goal) {
 //}
 
 /* getNodePath() //{ */
-std::vector<Node> AstarPlanner::getNodePath(octomap::point3d start_point, octomap::point3d goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
+std::vector<Node> AstarPlanner::getNodePath(const octomap::point3d& start_point, const octomap::point3d& goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
                                             bool resolution_increased) {
 
   std::vector<Node> waypoints;
@@ -231,6 +231,7 @@ std::vector<Node> AstarPlanner::getNodePath(std::vector<octomap::point3d> initia
 }
 //}
 
+/* publishOpenAndClosedList() //{ */
 void AstarPlanner::publishOpenAndClosedList(AstarPriorityQueue open_list, std::unordered_set<Node, NodeHasher> closed_list) {
   visualization_msgs::Marker::Ptr msg = boost::make_shared<visualization_msgs::Marker>();
 
@@ -282,6 +283,7 @@ void AstarPlanner::publishOpenAndClosedList(AstarPriorityQueue open_list, std::u
 
   pub_closed_list.publish(msg_c);
 }
+//}
 
 /* getNodePath() //{ */
 std::vector<Node> AstarPlanner::getNodePath() {
@@ -346,11 +348,10 @@ std::vector<Node> AstarPlanner::getNodePath() {
   ROS_INFO_COND(debug_, "[AstarPlanner]: Start key = [%d, %d, %d]", start_.key.k[0], start_.key.k[1], start_.key.k[2]);
   ROS_INFO_COND(debug_, "[AstarPlanner]: Goal key = [%d, %d, %d]", goal_.key.k[0], goal_.key.k[1], goal_.key.k[2]);
   while (!open_list.empty()) {
-    if (loop_counter % 10 == 0) {
-      ROS_INFO_COND(true || debug_, "[AstarPlanner]: Loop counter = %d, open list size = %lu, closed_list_size = %lu", loop_counter, open_list.size(),
+    if (loop_counter % 1000 == 0) {
+      ROS_INFO_COND(debug_, "[AstarPlanner]: Loop counter = %d, open list size = %lu, closed_list_size = %lu", loop_counter, open_list.size(),
                     closed_list.size());
-      publishOpenAndClosedList(open_list, closed_list);
-      getchar();
+      /* publishOpenAndClosedList(open_list, closed_list); */
       if ((ros::Time::now() - start_time).toSec() > planning_timeout_) {
         ROS_WARN("[AstarPlanner]: Planning timeout reached.");
         break;
@@ -799,7 +800,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getKeyVectorFromCoordinates(std::v
 
 /* firstUnfeasibleNodeInPath() //{ */
 std::pair<int, int> AstarPlanner::firstUnfeasibleNodeInPath(std::vector<octomap::OcTreeKey> key_waypoints, std::vector<geometry_msgs::Point> pose_array,
-                                                            int n_points_forward, octomap::point3d current_pose, double safe_dist_for_replanning,
+                                                            int n_points_forward, const octomap::point3d& current_pose, double safe_dist_for_replanning,
                                                             double critical_dist_for_replanning) {
   ROS_INFO_COND(debug_, "[AstarPlanner]: First unfeasible node in path start.");
   std::pair<int, int> result;
@@ -958,7 +959,7 @@ std::vector<int> AstarPlanner::getMapLimits(std::vector<octomap::OcTreeKey> plan
 //}
 
 /* getAdditionalWaypoints() //{ */
-std::vector<octomap::OcTreeKey> AstarPlanner::getAdditionalWaypoints(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+std::vector<octomap::OcTreeKey> AstarPlanner::getAdditionalWaypoints(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   int                             nof_diff_coords = nofDifferentKeyCoordinates(k1, k2);
   std::vector<octomap::OcTreeKey> additional_waypoints;
   std::vector<int>                diff_coords    = getDifferenceInCoordinates(k1, k2);
@@ -994,7 +995,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getAdditionalWaypoints(octomap::Oc
 //}
 
 /* getAdditionalWaypoints3d() //{ */
-std::vector<octomap::OcTreeKey> AstarPlanner::getAdditionalWaypoints3d(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+std::vector<octomap::OcTreeKey> AstarPlanner::getAdditionalWaypoints3d(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   // k1 = from, k2 = to
   octomap::OcTreeKey                           dir, diff, r1, r2;
   std::vector<octomap::OcTreeKey>              partial_results;
@@ -1068,7 +1069,7 @@ octomap::OcTreeKey AstarPlanner::getSafestWaypointsBetweenKeys(std::vector<octom
 //}
 
 /* getPossibleWaypointsForTwoDiffCoord() //{ */
-std::vector<std::vector<octomap::OcTreeKey>> AstarPlanner::getPossibleWaypointsForTwoDiffCoord(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+std::vector<std::vector<octomap::OcTreeKey>> AstarPlanner::getPossibleWaypointsForTwoDiffCoord(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   std::vector<std::vector<octomap::OcTreeKey>> result;
   std::vector<int>                             diff_in_coords = getDifferenceInCoordinates(k1, k2);
   // add solution for diagonaly connected nodes with manhattan distance equal to two
@@ -1133,7 +1134,7 @@ std::vector<std::vector<octomap::OcTreeKey>> AstarPlanner::getPossibleWaypointsF
 //}
 
 /* getPossibleWaypointsForThreeDiffCoord() //{ */
-std::vector<std::vector<octomap::OcTreeKey>> AstarPlanner::getPossibleWaypointsForThreeDiffCoord(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+std::vector<std::vector<octomap::OcTreeKey>> AstarPlanner::getPossibleWaypointsForThreeDiffCoord(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   std::vector<std::vector<octomap::OcTreeKey>> result;
   result.resize(6);
   for (uint i = 0; i < result.size(); i++) {
@@ -1168,7 +1169,7 @@ std::vector<std::vector<octomap::OcTreeKey>> AstarPlanner::getPossibleWaypointsF
 //}
 
 /* getConnectionNode() //{ */
-octomap::OcTreeKey AstarPlanner::getConnectionNode(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+octomap::OcTreeKey AstarPlanner::getConnectionNode(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   // returns best connection node for nodes with manhattan distance = 1
   octomap::OcTreeKey result_1;
   octomap::OcTreeKey result_2;
@@ -1201,7 +1202,7 @@ octomap::OcTreeKey AstarPlanner::getConnectionNode(octomap::OcTreeKey k1, octoma
 //}
 
 /* getConnectionNode3d() //{ */
-octomap::OcTreeKey AstarPlanner::getConnectionNode3d(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+octomap::OcTreeKey AstarPlanner::getConnectionNode3d(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   // returns best connection node for nodes with manhattan distance = 1
   octomap::OcTreeKey              dir, diff, r1;
   std::vector<octomap::OcTreeKey> results;
@@ -1229,7 +1230,7 @@ octomap::OcTreeKey AstarPlanner::getConnectionNode3d(octomap::OcTreeKey k1, octo
 //}
 
 /* findConnection() //{ */
-octomap::OcTreeKey AstarPlanner::findConnection(octomap::OcTreeKey k1, octomap::OcTreeKey k2, double original_obs_dist) {
+octomap::OcTreeKey AstarPlanner::findConnection(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2, double original_obs_dist) {
   double             eucl_dist = sqrt(pow(k1.k[0] - k2.k[0], 2) + pow(k1.k[1] - k2.k[1], 2) + pow(k1.k[2] - k2.k[2], 2));
   double             obs_dist;
   octomap::OcTreeKey connection_waypoint;
@@ -1291,7 +1292,7 @@ octomap::OcTreeKey AstarPlanner::findConnection(octomap::OcTreeKey k1, octomap::
 //}
 
 /* generatePossibleConnectionsDiagonalKeys() //{ */
-std::vector<octomap::OcTreeKey> AstarPlanner::generatePossibleConnectionsDiagonalKeys(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+std::vector<octomap::OcTreeKey> AstarPlanner::generatePossibleConnectionsDiagonalKeys(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   std::vector<octomap::OcTreeKey> keys;
   for (int i = 0; i < 3; i++) {
     octomap::OcTreeKey tmp_key = k1;
@@ -1308,7 +1309,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::generatePossibleConnectionsDiagona
 //}
 
 /* getBestNeighbor() //{ */
-octomap::OcTreeKey AstarPlanner::getBestNeighbor(octomap::OcTreeKey c) {
+octomap::OcTreeKey AstarPlanner::getBestNeighbor(const octomap::OcTreeKey& c) {
   std::vector<octomap::OcTreeKey> neighbors = getKeyNeighborhood26(c);
   double                          obs_dist;
   double                          max_dist          = pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(c));
@@ -1331,7 +1332,7 @@ octomap::OcTreeKey AstarPlanner::getBestNeighbor(octomap::OcTreeKey c) {
 //}
 
 /* getBestNeighbor() //{ */
-octomap::OcTreeKey AstarPlanner::getBestNeighborEscape(octomap::OcTreeKey c, octomap::OcTreeKey prev) {
+octomap::OcTreeKey AstarPlanner::getBestNeighborEscape(const octomap::OcTreeKey& c, const octomap::OcTreeKey& prev) {
   std::vector<octomap::OcTreeKey> neighbors = getKeyNeighborhood26(c);
   double                          obs_dist;
   double                          max_dist          = pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(c));
@@ -1357,7 +1358,7 @@ octomap::OcTreeKey AstarPlanner::getBestNeighborEscape(octomap::OcTreeKey c, oct
 //}
 
 /* getDistFactorOfNeighbors() //{ */
-double AstarPlanner::getDistFactorOfNeighbors(octomap::OcTreeKey c) {
+double AstarPlanner::getDistFactorOfNeighbors(const octomap::OcTreeKey& c) {
   std::vector<octomap::OcTreeKey> neighbors = getKeyNeighborhood6(c);
   std::vector<double>             dists;
   double                          max_dist = DBL_MIN;
@@ -1380,7 +1381,7 @@ double AstarPlanner::getDistFactorOfNeighbors(octomap::OcTreeKey c) {
 //}
 
 /* getPossiblSuccessors() //{ */
-std::vector<Node> AstarPlanner::getPossibleSuccessors(octomap::OcTreeKey parent, octomap::OcTreeKey current) {
+std::vector<Node> AstarPlanner::getPossibleSuccessors(const octomap::OcTreeKey& parent, const octomap::OcTreeKey& current) {
   int                move_length = nofDifferentKeyCoordinates(parent, current);
   std::vector<Node>  successors;
   octomap::OcTreeKey tmp_key;
@@ -1537,7 +1538,7 @@ void AstarPlanner::setSafeDist(const double safe_dist) {
 /* SUPPORTING METHODS //{ */
 
 /* isNodeGoal() //{ */
-bool AstarPlanner::isNodeGoal(Node n) {
+bool AstarPlanner::isNodeGoal(const Node& n) {
   if (n.key[0] == goal_.key.k[0] && n.key[1] == goal_.key.k[1] && n.key[2] == goal_.key.k[2]) {
     return true;
   }
@@ -1546,7 +1547,7 @@ bool AstarPlanner::isNodeGoal(Node n) {
 //}
 
 /* isNodeGoal() //{ */
-bool AstarPlanner::isNodeGoal(Node n, Node goal) {
+bool AstarPlanner::isNodeGoal(const Node& n, const Node& goal) {
   if (n.key[0] == goal.key.k[0] && n.key[1] == goal.key.k[1] && n.key[2] == goal.key.k[2]) {
     return true;
   }
@@ -1555,48 +1556,25 @@ bool AstarPlanner::isNodeGoal(Node n, Node goal) {
 //}
 
 /* euclideanCost() //{ */
-double AstarPlanner::euclideanCost(Node n) {
+double AstarPlanner::euclideanCost(const Node& n) {
   return sqrt(pow(n.key.k[0] - goal_.key.k[0], 2) + pow(n.key.k[1] - goal_.key.k[1], 2) + pow(n.key.k[2] - goal_.key.k[2], 2));
 }
 //}
 
 /* manhattanCost() //{ */
-double AstarPlanner::manhattanCost(Node n) {
+double AstarPlanner::manhattanCost(const Node& n) {
   return fabs(n.key.k[0] - goal_.key.k[0]) + fabs(n.key.k[1] - goal_.key.k[1]) + fabs(n.key.k[2] - goal_.key.k[2]);
 }
 //}
 
 /* noedDistance() //{ */
-double AstarPlanner::nodeDistance(Node a, Node b) {
+double AstarPlanner::nodeDistance(const Node& a, const Node& b) {
   return sqrt(pow(a.key.k[0] - b.key.k[0], 2) + pow(a.key.k[1] - b.key.k[1], 2) + pow(a.key.k[2] - b.key.k[2], 2));
 }
 //}
 
-/* generateObstacleCost() //{ */
-double AstarPlanner::generateObstacleCost(double dist) {
-  double resolution = 0.3;
-  if (dist < resolution) {
-    return 2000000.0;
-  } else if (dist < 2 * resolution) {
-    return 200000.0;
-  } else if (dist < 3 * resolution) {
-    return 20000.0;
-  } else if (dist < 4 * resolution) {
-    return 2000.0;
-  } else if (dist < 5 * resolution) {
-    return 200.0;
-  } else if (dist < 6 * resolution) {
-    return 20.0;
-  } else if (dist < 7 * resolution) {
-    return 2.0;
-  } else {
-    return 0.0;
-  }
-}
-//}
-
 /* isNodeInTheNeighborhood() //{ */
-bool AstarPlanner::isNodeInTheNeighborhood(octomap::OcTreeKey n, octomap::OcTreeKey center, double dist) {
+bool AstarPlanner::isNodeInTheNeighborhood(const octomap::OcTreeKey& n, const octomap::OcTreeKey& center, double dist) {
   double voxel_dist = sqrt(pow(n.k[0] - center.k[0], 2) + pow(n.k[1] - center.k[1], 2) + pow(n.k[2] - center.k[2], 2));
   /* ROS_INFO("[AstarPlanner]: isNodeInTheNeighborhood: returning: %.2f ", (voxel_dist * resolution_) ); */
   return (voxel_dist * resolution_) < dist;
@@ -1764,7 +1742,7 @@ std::vector<std::vector<std::vector<int>>> AstarPlanner::getObstacleConditionsFo
 //}
 
 /* getNeighborhood26() //{ */
-std::vector<Node> AstarPlanner::getNeighborhood26(Node n) {
+std::vector<Node> AstarPlanner::getNeighborhood26(const Node& n) {
   std::vector<Node> neighbors;
   for (int a = -1; a < 2; a++) {
     for (int b = -1; b < 2; b++) {
@@ -1787,7 +1765,7 @@ std::vector<Node> AstarPlanner::getNeighborhood26(Node n) {
 //}
 
 /* getKeyNeighborhood26() //{ */
-std::vector<octomap::OcTreeKey> AstarPlanner::getKeyNeighborhood26(octomap::OcTreeKey key_a) {
+std::vector<octomap::OcTreeKey> AstarPlanner::getKeyNeighborhood26(const octomap::OcTreeKey& key_a) {
   std::vector<octomap::OcTreeKey> neighbors;
   for (int a = -1; a < 2; a++) {
     for (int b = -1; b < 2; b++) {
@@ -1809,7 +1787,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getKeyNeighborhood26(octomap::OcTr
 //}
 
 /* getNeighborhood6() //{ */
-std::vector<Node> AstarPlanner::getNeighborhood6(Node n) {
+std::vector<Node> AstarPlanner::getNeighborhood6(const Node& n) {
   std::vector<Node>             neighbors;
   std::vector<std::vector<int>> shifts;
   shifts.push_back({1, 0, 0});
@@ -1832,7 +1810,7 @@ std::vector<Node> AstarPlanner::getNeighborhood6(Node n) {
 //}
 
 /* getKeyNeighborhood6() //{ */
-std::vector<octomap::OcTreeKey> AstarPlanner::getKeyNeighborhood6(octomap::OcTreeKey key) {
+std::vector<octomap::OcTreeKey> AstarPlanner::getKeyNeighborhood6(const octomap::OcTreeKey& key) {
   std::vector<octomap::OcTreeKey> neighbors;
   std::vector<std::vector<int>>   shifts;
   shifts.push_back({1, 0, 0});
@@ -1854,21 +1832,21 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getKeyNeighborhood6(octomap::OcTre
 //}
 
 /* checkLimits() //{ */
-bool AstarPlanner::checkLimits(std::vector<int> map_limits, Node n) {
+bool AstarPlanner::checkLimits(std::vector<int> map_limits, const Node& n) {
   return !(n.key[0] < map_limits[0] || n.key[0] > map_limits[1] || n.key[1] < map_limits[2] || n.key[1] > map_limits[3] || n.key[2] < map_limits[4] ||
            n.key[2] > map_limits[5]);
 }
 //}
 
 /* areKeysDiagonalNeighbors() //{ */
-bool AstarPlanner::areKeysDiagonalNeighbors(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+bool AstarPlanner::areKeysDiagonalNeighbors(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   return (keyManhattanDist(k1, k2) == 2 && nofDifferentKeyCoordinates(k1, k2) == 2) ||
          (keyManhattanDist(k1, k2) == 3 && nofDifferentKeyCoordinates(k1, k2) == 3);
 }
 //}
 
 /* getDifferenceInCoordinates() //{ */
-std::vector<int> AstarPlanner::getDifferenceInCoordinates(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+std::vector<int> AstarPlanner::getDifferenceInCoordinates(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   std::vector<int> diffs;
   for (uint i = 0; i < 3; i++) {
     diffs.push_back(abs(k1.k[i] - k2.k[i]));
@@ -1878,39 +1856,39 @@ std::vector<int> AstarPlanner::getDifferenceInCoordinates(octomap::OcTreeKey k1,
 //}
 
 /* areKeysInNeighborhood() //{ */
-bool AstarPlanner::areKeysInNeighborhood(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+bool AstarPlanner::areKeysInNeighborhood(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   return abs(k1.k[0] - k2.k[0]) <= 1 && abs(k1.k[1] - k2.k[1]) <= 1 && abs(k1.k[2] - k2.k[2]) <= 1;  // 26N version
   /* return (abs(k1.k[0] - k2.k[0]) + abs(k1.k[1] - k2.k[1]) + abs(k1.k[2] - k2.k[2])) == 1; // 6N version */
 }
 //}
 
 /* areKeysInNeighborhood() //{ */
-bool AstarPlanner::areKeysInTwoStepsDistance(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+bool AstarPlanner::areKeysInTwoStepsDistance(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   return abs(k1.k[0] - k2.k[0]) <= 2 && abs(k1.k[1] - k2.k[1]) <= 2 && abs(k1.k[2] - k2.k[2]) <= 2;  // 26N version
   /* return (abs(k1.k[0] - k2.k[0]) + abs(k1.k[1] - k2.k[1]) + abs(k1.k[2] - k2.k[2])) == 1; // 6N version */
 }
 //}
 
 /* areKeysEqual() //{ */
-bool AstarPlanner::areKeysEqual(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+bool AstarPlanner::areKeysEqual(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   return (k1.k[0] == k2.k[0]) && (k1.k[1] == k2.k[1]) && (k1.k[2] == k2.k[2]);
 }
 //}
 
 /* keyManhattanDist() //{ */
-int AstarPlanner::keyManhattanDist(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+int AstarPlanner::keyManhattanDist(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   return abs(k1.k[0] - k2.k[0]) + abs(k1.k[1] - k2.k[1]) + abs(k1.k[2] - k2.k[2]);
 }
 //}
 
 /* keyManhattanDist() //{ */
-double AstarPlanner::keyEuclideanDist(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+double AstarPlanner::keyEuclideanDist(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   return sqrt(pow(k1.k[0] - k2.k[0], 2) + pow(k1.k[1] - k2.k[1], 2) + pow(k1.k[2] - k2.k[2], 2));
 }
 //}
 
 /* nofDifferentKeyCoordinates() //{ */
-int AstarPlanner::nofDifferentKeyCoordinates(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+int AstarPlanner::nofDifferentKeyCoordinates(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   int result = k1.k[0] == k2.k[0] ? 0 : 1;
   if (k1.k[1] != k2.k[1]) {
     result++;
@@ -1923,7 +1901,7 @@ int AstarPlanner::nofDifferentKeyCoordinates(octomap::OcTreeKey k1, octomap::OcT
 //}
 
 /*  octomapKeyToPclPoint()//{ */
-pcl::PointXYZ AstarPlanner::octomapKeyToPclPoint(octomap::OcTreeKey octo_key) {
+pcl::PointXYZ AstarPlanner::octomapKeyToPclPoint(const octomap::OcTreeKey& octo_key) {
   octomap::point3d point3d = planning_octree_->keyToCoord(octo_key);
   pcl::PointXYZ    pcl_point;
   pcl_point.x = point3d.x();
@@ -1933,8 +1911,8 @@ pcl::PointXYZ AstarPlanner::octomapKeyToPclPoint(octomap::OcTreeKey octo_key) {
 }
 //}
 
-/* isCOnnectivityMaintained() //{ */
-int AstarPlanner::isConnectivityMaintained(octomap::OcTreeKey k1, octomap::OcTreeKey k2) {
+/* isConnectivityMaintained() //{ */
+int AstarPlanner::isConnectivityMaintained(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2) {
   // returns 1 for exactly the same keys, 2 for fully connected keys and three for disconnected
   double euclidean_dist = sqrt(pow(k1.k[0] - k2.k[0], 2) + pow(k1.k[1] - k2.k[1], 2) + pow(k1.k[2] - k2.k[2], 2));
   if (euclidean_dist == 0) {
@@ -1953,7 +1931,7 @@ void AstarPlanner::setPlanningOctree(std::shared_ptr<octomap::OcTree> new_map) {
 }
 //}
 
-void AstarPlanner::publishPoints(octomap::OcTreeKey current, octomap::OcTreeKey best_neigh, octomap::OcTreeKey last_added,
+void AstarPlanner::publishPoints(const octomap::OcTreeKey& current, const octomap::OcTreeKey& best_neigh, const octomap::OcTreeKey& last_added,
                                  std::vector<octomap::OcTreeKey> additional_waypoints) {
   visualization_msgs::MarkerArray::Ptr msg_array = boost::make_shared<visualization_msgs::MarkerArray>();
   visualization_msgs::Marker::Ptr      msg       = boost::make_shared<visualization_msgs::Marker>();
