@@ -471,7 +471,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
 /* getLastFoundGoal() //{ */
 octomap::point3d AstarPlanner::getLastFoundGoal() {
-  if (!initialized_) {
+  if (!initialized_ || !planning_octree_) {
     octomap::point3d point = {0, 0, 0};
     return point;
   }
