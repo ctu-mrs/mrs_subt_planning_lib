@@ -46,7 +46,7 @@ struct Node
   int                n_nodes     = 0;  // number of nodes visited from start
 
   bool operator==(Node b) {
-    return (key.k[0] == b.key.k[0]) && (key.k[1] == b.key.k[1]) && (key.k[2] == b.key.k[2]);
+    return key == b.key;
   }
 
   bool operator<(Node b) {
@@ -73,7 +73,7 @@ inline bool operator<(const Node& lhs, const Node& rhs) {
 }
 
 inline bool operator==(const Node& lhs, const Node& rhs) {
-  return (lhs.key.k[0] == rhs.key.k[0]) && (lhs.key.k[1] == rhs.key.k[1]) && (lhs.key.k[2] == rhs.key.k[2]);
+  return lhs.key == rhs.key;
 }
 
 struct NodeHasher
