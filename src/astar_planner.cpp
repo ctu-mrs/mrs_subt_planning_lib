@@ -134,7 +134,7 @@ bool AstarPlanner::checkValidityWithKDTree(const octomap::OcTreeKey& k) {
 Node AstarPlanner::getValidNodeInNeighborhood(const Node& goal) {
   std::vector<Node> neighbors = getNeighborhood26(goal);
   for (std::vector<Node>::iterator it = neighbors.begin(); it != neighbors.end(); ++it) {
-    if (isNodeValid(*it) && checkValidityWithNeighborhood(*it)) {
+    if (checkValidityWithNeighborhood(*it)) {
       return *it;
     }
   }
@@ -321,7 +321,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
     pcl_map_.initKDTreeSearch(simulated_pointcloud);
     ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree end");
   }
-  if (!isNodeValid(goal_) || !checkValidityWithNeighborhood(goal_)) {
+  if (!checkValidityWithNeighborhood(goal_)) {
     ROS_WARN_COND(debug_, "[AstarPlanner]: Goal destination unreachable.");
     Node secondary_goal_ = getValidNodeInNeighborhood(goal_);
     if (secondary_goal_.key.k[0] == 0) {
@@ -388,7 +388,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
     }
     for (std::vector<Node>::iterator it = neighbors.begin(); it != neighbors.end(); ++it) {
 
-      if (!isNodeValid(*it) || !checkValidityWithNeighborhood(*it)) {
+      if (!checkValidityWithNeighborhood(*it)) {
         continue;
       }
 
