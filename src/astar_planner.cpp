@@ -146,7 +146,8 @@ Node AstarPlanner::getValidNodeInNeighborhood(const Node& goal) {
 
 /* getNodePath() //{ */
 std::vector<Node> AstarPlanner::getNodePath(const octomap::point3d& start_point, const octomap::point3d& goal_point,
-                                            std::shared_ptr<octomap::OcTree> planning_octree, bool resolution_increased) {
+                                            std::shared_ptr<octomap::OcTree> planning_octree, bool resolution_increased, bool ignore_unknown_cells_near_start,
+                                            double box_size_for_unknown_cells_replacement) {
 
   std::vector<Node> waypoints;
 
@@ -172,9 +173,14 @@ std::vector<Node> AstarPlanner::getNodePath(const octomap::point3d& start_point,
 
   ROS_INFO("[AstarPlanner]: Get node path start, resolution = %.2f", resolution_);
 
+  octomap::OcTreeKey start_key = planning_octree_->coordToKey(start_point);
+  if (ignore_unknown_cells_near_start) {
+    replaceUnknownByFreeCells(start_key, box_size_for_unknown_cells_replacement);
+  }
+
   waypoints = getNodePath();
 
-  if (waypoints.size() > 5) { 
+  if (waypoints.size() > 5) {
     safe_dist_prev_ = safe_dist_;
   }
 
@@ -184,7 +190,7 @@ std::vector<Node> AstarPlanner::getNodePath(const octomap::point3d& start_point,
 
 /* getNodePath() //{ */
 std::vector<Node> AstarPlanner::getNodePath(const std::vector<octomap::point3d>& initial_waypoints, std::shared_ptr<octomap::OcTree> planning_octree,
-                                            bool resolution_increased) {
+                                            bool resolution_increased, bool ignore_unknown_cells_near_start, double box_size_for_unknown_cells_replacement) {
 
   std::vector<Node> waypoints;
 
@@ -234,11 +240,43 @@ std::vector<Node> AstarPlanner::getNodePath(const std::vector<octomap::point3d>&
 
   planning_timeout_ = former_planning_timeout;  // restore former planning timeout for single path
 
-  if (waypoints.size() > 5) { 
+  if (waypoints.size() > 5) {
     safe_dist_prev_ = safe_dist_;
   }
 
   return waypoints;
+}
+//}
+
+/* replaceUnknownByFreeCells //{ */
+void AstarPlanner::replaceUnknownByFreeCells(const octomap::OcTreeKey& start_key, double box_size) {
+  if (planning_octree_ == NULL) {
+    return;
+  }
+
+  int n_cells      = ceil(box_size / planning_octree_->getResolution());
+  int n_cells_halb = n_cells / 2;  // intended result is integer devidable by 2
+
+  octomap::point3d p = planning_octree_->keyToCoord(start_key);
+  if ((p.x() - box_size) < grid_params_.min_x || (p.x() + box_size) > grid_params_.max_x || (p.y() - box_size) < grid_params_.min_y ||
+      (p.y() + box_size) > grid_params_.max_y || (p.z() - box_size) < grid_params_.min_z || (p.z() + box_size) > grid_params_.max_z) {
+    return;
+  }
+
+  ROS_INFO_COND(verbose_, "[AstarPlanner]: Replacing unknown cells by free in surrounding of point [%.2f, %.2f, %.2f].", p.x(), p.y(), p.z());
+
+  for (int x = start_key.k[0] - n_cells_halb; x <= start_key.k[0] + n_cells_halb; x++) {
+    for (int y = start_key.k[0] - n_cells_halb; y <= start_key.k[0] + n_cells_halb; y++) {
+      for (int z = start_key.k[0] - n_cells_halb; z <= start_key.k[0] + n_cells_halb; z++) {
+        octomap::OcTreeKey tmp = octomap::OcTreeKey(x, y, z);
+        if (planning_octree_->search(tmp) == NULL) {
+          planning_octree_->updateNode(tmp, false);  // should be considered as free now
+        }
+      }
+    }
+  }
+
+  ROS_INFO_COND(debug_, "[AstarPlanner]: Unknown cells replaced.");
 }
 //}
 
@@ -343,7 +381,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
     }
   }
 
-  if (!checkValidityWithNeighborhood(start_) && safe_dist_prev_ < safe_dist_) { // prevents stuck due to increasing safe_dist
+  if (!checkValidityWithNeighborhood(start_) && safe_dist_prev_ < safe_dist_) {  // prevents stuck due to increasing safe_dist
     safe_dist_ = safe_dist_prev_;
   }
 
@@ -409,7 +447,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
       /* it->g_cost = it->f_cost + it->h_cost; */
       it->g_cost     = fmax(it->f_cost + it->h_cost + (-1 + (1 - 1 / it->h_cost)), 0.0);
       it->parent_key = current.key;
-      it->pose       = planning_octree_->keyToCoord(it->key); // needed only for the visualization, otherwise unused
+      it->pose       = planning_octree_->keyToCoord(it->key);  // needed only for the visualization, otherwise unused
       if (it->h_cost < nearest.h_cost) {
         nearest = *it;
       }
@@ -887,7 +925,8 @@ std::vector<pcl::PointXYZ> AstarPlanner::octomapToPointcloud(const std::vector<i
         tmp_key.k[0] = x;
         tmp_key.k[1] = y;
         tmp_key.k[2] = z;
-        if (planning_octree_->search(tmp_key) == NULL || (planning_octree_->search(tmp_key) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(tmp_key)))) {
+        if (planning_octree_->search(tmp_key) == NULL ||
+            (planning_octree_->search(tmp_key) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(tmp_key)))) {
           octomap::point3d octomap_point = planning_octree_->keyToCoord(tmp_key);
           point.x                        = octomap_point.x();
           point.y                        = octomap_point.y();
@@ -909,7 +948,8 @@ std::vector<pcl::PointXYZ> AstarPlanner::octomapToPointcloud() {
     if (it.getDepth() != planning_octree_->getTreeDepth())
       continue;
 
-    if (planning_octree_->search(it.getKey()) == NULL || (planning_octree_->search(it.getKey()) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(it.getKey())))) {
+    if (planning_octree_->search(it.getKey()) == NULL ||
+        (planning_octree_->search(it.getKey()) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(it.getKey())))) {
       pcl::PointXYZ    point;
       octomap::point3d octomap_point = planning_octree_->keyToCoord(it.getKey());
       point.x                        = octomap_point.x();
@@ -1005,7 +1045,9 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getAdditionalWaypoints(const octom
     case 3: {
       additional_waypoints = getSafestWaypointsBetweenKeys(getPossibleWaypointsForThreeDiffCoord(k1, k2));
     } break;
-    default: { ROS_ERROR("[AstarPlanner]: Number of different coords = %d outside expected range. ", nof_diff_coords); }
+    default: {
+      ROS_ERROR("[AstarPlanner]: Number of different coords = %d outside expected range. ", nof_diff_coords);
+    }
   }
   return additional_waypoints;
 }

@@ -154,7 +154,7 @@ bool PCLMap::checkDistanceFromNearestPoint(pcl::PointXYZ point, double safe_dist
   }
 }
 
-pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::octomapToPointcloud(std::shared_ptr<octomap::OcTree> input_octree, std::array<octomap::point3d, 2> map_limits) {
+pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::octomapToPointcloud(std::shared_ptr<octomap::OcTree> input_octree, std::array<octomap::point3d, 2> map_limits, bool ignore_unknown_cells) {
   std::vector<pcl::PointXYZ> output_pcl;
 
   if (map_limits[0].x() > map_limits[1].x() || map_limits[0].y() > map_limits[1].y() || map_limits[0].z() > map_limits[1].z()) { 
@@ -176,7 +176,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::octomapToPointcloud(std::shared_ptr<
         tmp_key.k[0] = x;
         tmp_key.k[1] = y;
         tmp_key.k[2] = z;
-        if (input_octree->search(tmp_key) == NULL ||
+        if ((!ignore_unknown_cells && input_octree->search(tmp_key) == NULL) ||
             (input_octree->search(tmp_key) != NULL && input_octree->isNodeOccupied(input_octree->search(tmp_key)))) {
           octomap::point3d octomap_point = input_octree->keyToCoord(tmp_key);
           point.x                        = octomap_point.x();
