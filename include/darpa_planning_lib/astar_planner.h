@@ -145,9 +145,11 @@ public:
 
   std::vector<Node> getNodePath();  // for backward compatibility only
   std::vector<Node> getNodePath(const octomap::point3d& start_point, const octomap::point3d& goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
-                                bool resolution_increased = false, bool ignore_unknown_cells_near_start = false, double box_size_for_unknown_cells_replacement = 2.0);
+                                bool resolution_increased = false, bool ignore_unknown_cells_near_start = false,
+                                double box_size_for_unknown_cells_replacement = 2.0);
   std::vector<Node> getNodePath(const std::vector<octomap::point3d>& initial_waypoints, std::shared_ptr<octomap::OcTree> planning_octree,
-                                bool resolution_increased = false, bool ignore_unknown_cells_near_start = false, double box_size_for_unknown_cells_replacement = 2.0);
+                                bool resolution_increased = false, bool ignore_unknown_cells_near_start = false,
+                                double box_size_for_unknown_cells_replacement = 2.0);
   std::vector<octomap::point3d>   getWaypointPath(const std::vector<Node>& node_path);
   std::vector<octomap::point3d>   getWaypointPath(const std::vector<octomap::OcTreeKey>& key_path);
   std::vector<octomap::point3d>   getLocalPath(const std::vector<Node>& node_path);
@@ -177,6 +179,7 @@ protected:
   ros::Publisher pub_debug;
   ros::Publisher pub_open_list;
   ros::Publisher pub_closed_list;
+  ros::Publisher pub_occupied_pcl_;
 
   std::shared_ptr<octomap::OcTree> planning_octree_;
   GridParams                       grid_params_;
@@ -234,6 +237,7 @@ protected:
   double                                       getDistFactorOfNeighbors(const octomap::OcTreeKey& c);
   void                                         publishOpenAndClosedList(AstarPriorityQueue open_list, std::unordered_set<Node, NodeHasher> closed_list);
   void                                         replaceUnknownByFreeCells(const octomap::OcTreeKey& start_key, double box_size);
+  void                                         publishOccupiedPcl(std::vector<pcl::PointXYZ>& pcl_points);
 
   // params
   bool   use_neighborhood_6_;

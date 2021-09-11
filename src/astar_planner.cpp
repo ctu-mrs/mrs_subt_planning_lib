@@ -43,6 +43,7 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
   pub_debug       = nh.advertise<visualization_msgs::MarkerArray>("debug_points", 1);
   pub_open_list   = nh.advertise<visualization_msgs::Marker>("open_list", 1);
   pub_closed_list = nh.advertise<visualization_msgs::Marker>("closed_list", 1);
+  pub_occupied_pcl_ = nh.advertise<visualization_msgs::Marker>("occupied_pcl", 1);
 }
 //}
 
@@ -77,9 +78,7 @@ bool AstarPlanner::isNodeValid(const Node& n) {
   }
   if (isNodeInTheNeighborhood(n.key, start_.key, clearing_dist_)) {  // unknown
     return true;
-  } else if (planning_octree_->search(n.key) == NULL) {
-    return false;
-  } else if (planning_octree_->isNodeOccupied(planning_octree_->search(n.key))) {  // occupied
+  } else if (planning_octree_->search(n.key) == NULL || planning_octree_->isNodeOccupied(planning_octree_->search(n.key))) {  // occupied
     return false;
   }
   /* else if (planning_octree_->search(n.key) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(n.key))) { */
@@ -174,6 +173,7 @@ std::vector<Node> AstarPlanner::getNodePath(const octomap::point3d& start_point,
   ROS_INFO("[AstarPlanner]: Get node path start, resolution = %.2f", resolution_);
 
   octomap::OcTreeKey start_key = planning_octree_->coordToKey(start_point);
+  ROS_INFO("[debug]: astar planner ignore unknown cells near start = %d ", ignore_unknown_cells_near_start);
   if (ignore_unknown_cells_near_start) {
     replaceUnknownByFreeCells(start_key, box_size_for_unknown_cells_replacement);
   }
@@ -216,8 +216,12 @@ std::vector<Node> AstarPlanner::getNodePath(const std::vector<octomap::point3d>&
     clearing_dist_ = safe_dist_;
   }
 
+  if (ignore_unknown_cells_near_start) {
+    replaceUnknownByFreeCells(planning_octree_->coordToKey(initial_waypoints[0]), box_size_for_unknown_cells_replacement);
+  }
+
   double former_planning_timeout = planning_timeout_;                                   // store planning timeout for a single path
-  planning_timeout_              = planning_timeout_ / (initial_waypoints.size() - 1);  // change planning timeout according to number of waypoints
+  planning_timeout_              = planning_timeout_ / double(initial_waypoints.size() - 1);  // change planning timeout according to number of waypoints
   std::vector<Node> partial_waypoints;
   ROS_INFO("[AstarPlanner]: Get node path for multiple waypoints, resolution = %.2f", resolution_);
   for (size_t k = 1; k < initial_waypoints.size(); k++) {
@@ -250,31 +254,27 @@ std::vector<Node> AstarPlanner::getNodePath(const std::vector<octomap::point3d>&
 
 /* replaceUnknownByFreeCells //{ */
 void AstarPlanner::replaceUnknownByFreeCells(const octomap::OcTreeKey& start_key, double box_size) {
+
   if (planning_octree_ == NULL) {
     return;
   }
 
-  int n_cells      = ceil(box_size / planning_octree_->getResolution());
-  int n_cells_halb = n_cells / 2;  // intended result is integer devidable by 2
+  octomap::point3d      p = planning_octree_->keyToCoord(start_key);
+  octomap::point3d_list unknown_cells_centers;
+  octomap::point3d      p_min = p - octomap::point3d(box_size, box_size, box_size);
+  octomap::point3d      p_max = p + octomap::point3d(box_size, box_size, box_size);
 
-  octomap::point3d p = planning_octree_->keyToCoord(start_key);
-  if ((p.x() - box_size) < grid_params_.min_x || (p.x() + box_size) > grid_params_.max_x || (p.y() - box_size) < grid_params_.min_y ||
-      (p.y() + box_size) > grid_params_.max_y || (p.z() - box_size) < grid_params_.min_z || (p.z() + box_size) > grid_params_.max_z) {
-    return;
-  }
-
+  planning_octree_->getUnknownLeafCenters(unknown_cells_centers, p_min, p_max);
   ROS_INFO_COND(verbose_, "[AstarPlanner]: Replacing unknown cells by free in surrounding of point [%.2f, %.2f, %.2f].", p.x(), p.y(), p.z());
+  ROS_INFO("[debug]: unknown cells centers size before = %lu", unknown_cells_centers.size());
 
-  for (int x = start_key.k[0] - n_cells_halb; x <= start_key.k[0] + n_cells_halb; x++) {
-    for (int y = start_key.k[0] - n_cells_halb; y <= start_key.k[0] + n_cells_halb; y++) {
-      for (int z = start_key.k[0] - n_cells_halb; z <= start_key.k[0] + n_cells_halb; z++) {
-        octomap::OcTreeKey tmp = octomap::OcTreeKey(x, y, z);
-        if (planning_octree_->search(tmp) == NULL) {
-          planning_octree_->updateNode(tmp, false);  // should be considered as free now
-        }
-      }
-    }
+  for (auto& n : unknown_cells_centers) {
+    planning_octree_->updateNode(n, false);
   }
+
+  octomap::point3d_list unknown_cells_centers_after;
+  planning_octree_->getUnknownLeafCenters(unknown_cells_centers_after, p_min, p_max);
+  ROS_INFO("[debug]: unknown cells centers size after = %lu", unknown_cells_centers_after.size());
 
   ROS_INFO_COND(debug_, "[AstarPlanner]: Unknown cells replaced.");
 }
@@ -334,6 +334,42 @@ void AstarPlanner::publishOpenAndClosedList(AstarPriorityQueue open_list, std::u
 }
 //}
 
+/* publishOpenAndClosedList() //{ */
+void AstarPlanner::publishOccupiedPcl(std::vector<pcl::PointXYZ>& pcl_points) {
+
+  if (pub_occupied_pcl_.getNumSubscribers() < 1) { 
+    return;
+  }
+
+  visualization_msgs::Marker::Ptr msg = boost::make_shared<visualization_msgs::Marker>();
+  ROS_INFO("[%s]: Publish occupied pcl start", ros::this_node::getName().c_str());
+  msg->header.frame_id = "uav1/aloam_origin";
+  msg->header.stamp    = ros::Time::now();
+
+  msg->action  = visualization_msgs::Marker::ADD;
+  msg->type    = visualization_msgs::Marker::SPHERE_LIST;
+  msg->scale.x = msg->scale.y = msg->scale.z = 0.10;
+  msg->color.r                               = 0;
+  msg->color.g                               = 1;
+  msg->color.b                               = 0;
+  msg->color.a                               = 1;
+  msg->pose.orientation.w                    = 1;
+  msg->id                                    = 1;
+  msg->points.resize(pcl_points.size());
+  for (int k = 0; k < pcl_points.size(); k++) {
+    msg->points[k].x = pcl_points[k].x;
+    msg->points[k].y = pcl_points[k].y;
+    msg->points[k].z = pcl_points[k].z;
+  }
+
+  try {
+    pub_occupied_pcl_.publish(msg);
+  } catch (...) {
+    ROS_ERROR("exception caught during publishing topic '%s'", pub_occupied_pcl_.getTopic().c_str());
+  }
+}
+//}
+
 /* getNodePath() //{ */
 std::vector<Node> AstarPlanner::getNodePath() {
   ROS_INFO("[AstarPlanner]: Get node path start");
@@ -352,6 +388,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
   ROS_INFO_COND(debug_, "[AstarPlanner] Start octomap to pointcloud");
   std::vector<pcl::PointXYZ> pcl_points =
       octomapToPointcloud();  // TODO: replace by detection of maxmin x, maxmin y and maxmin z, for reasonable setting of are
+  publishOccupiedPcl(pcl_points);
   if (pcl_points.size() > 0) {
     ROS_INFO_COND(verbose_, "[AstarPlanner]: Start conversion");
     pcl::PointCloud<pcl::PointXYZ>::Ptr simulated_pointcloud = PCLMap::pclVectorToPointcloud(pcl_points);
@@ -404,7 +441,6 @@ std::vector<Node> AstarPlanner::getNodePath() {
     if (loop_counter % 1000 == 0) {
       ROS_INFO_COND(debug_, "[AstarPlanner]: Loop counter = %d, open list size = %lu, closed_list_size = %lu", loop_counter, open_list.size(),
                     closed_list.size());
-      /* publishOpenAndClosedList(open_list, closed_list); */
       if ((ros::Time::now() - start_time).toSec() > planning_timeout_) {
         ROS_WARN("[AstarPlanner]: Planning timeout reached.");
         break;
@@ -459,6 +495,8 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
     loop_counter++;
   }
+  ROS_INFO("[AstarPlanner debug]: Astar ended after %d iterations", loop_counter);
+  /* publishOpenAndClosedList(open_list, closed_list); */
 
   // path reconstruction
   if (!isNodeGoal(current)) {
@@ -876,6 +914,7 @@ std::pair<int, int> AstarPlanner::firstUnfeasibleNodeInPath(const std::vector<oc
       octomapToPointcloud(map_limits);  // TODO: replace by detection of maxmin x, maxmin y and maxmin z, for reasonable setting of are
   if (pcl_points.size() > 0) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr simulated_pointcloud = PCLMap::pclVectorToPointcloud(pcl_points);
+
     ROS_INFO_COND(true, "[AstarPlanner]: Map limits: x = [%d, %d], y = [%d, %d], z = [%d, %d]", map_limits[0], map_limits[1], map_limits[2], map_limits[3],
                   map_limits[4], map_limits[5]);
     ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree start");
