@@ -40,9 +40,9 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
   initialized_ = true;
 
   ros::NodeHandle nh("~");
-  pub_debug       = nh.advertise<visualization_msgs::MarkerArray>("debug_points", 1);
-  pub_open_list   = nh.advertise<visualization_msgs::Marker>("open_list", 1);
-  pub_closed_list = nh.advertise<visualization_msgs::Marker>("closed_list", 1);
+  pub_debug         = nh.advertise<visualization_msgs::MarkerArray>("debug_points", 1);
+  pub_open_list     = nh.advertise<visualization_msgs::Marker>("open_list", 1);
+  pub_closed_list   = nh.advertise<visualization_msgs::Marker>("closed_list", 1);
   pub_occupied_pcl_ = nh.advertise<visualization_msgs::Marker>("occupied_pcl", 1);
 }
 //}
@@ -220,7 +220,7 @@ std::vector<Node> AstarPlanner::getNodePath(const std::vector<octomap::point3d>&
     replaceUnknownByFreeCells(planning_octree_->coordToKey(initial_waypoints[0]), box_size_for_unknown_cells_replacement);
   }
 
-  double former_planning_timeout = planning_timeout_;                                   // store planning timeout for a single path
+  double former_planning_timeout = planning_timeout_;                                         // store planning timeout for a single path
   planning_timeout_              = planning_timeout_ / double(initial_waypoints.size() - 1);  // change planning timeout according to number of waypoints
   std::vector<Node> partial_waypoints;
   ROS_INFO("[AstarPlanner]: Get node path for multiple waypoints, resolution = %.2f", resolution_);
@@ -337,7 +337,7 @@ void AstarPlanner::publishOpenAndClosedList(AstarPriorityQueue open_list, std::u
 /* publishOpenAndClosedList() //{ */
 void AstarPlanner::publishOccupiedPcl(std::vector<pcl::PointXYZ>& pcl_points) {
 
-  if (pub_occupied_pcl_.getNumSubscribers() < 1) { 
+  if (pub_occupied_pcl_.getNumSubscribers() < 1) {
     return;
   }
 
@@ -364,7 +364,8 @@ void AstarPlanner::publishOccupiedPcl(std::vector<pcl::PointXYZ>& pcl_points) {
 
   try {
     pub_occupied_pcl_.publish(msg);
-  } catch (...) {
+  }
+  catch (...) {
     ROS_ERROR("exception caught during publishing topic '%s'", pub_occupied_pcl_.getTopic().c_str());
   }
 }
@@ -427,6 +428,8 @@ std::vector<Node> AstarPlanner::getNodePath() {
     return waypoints;
   }
 
+  std::vector<Node> waypoints_init = getPathToNearestFeasibleNode(start_);
+
   ROS_INFO_COND(debug_, "[AstarPlanner]: Add start into open list.");
   start_.f_cost = 0.0;
   open_list.push(start_);
@@ -483,7 +486,6 @@ std::vector<Node> AstarPlanner::getNodePath() {
       /* it->g_cost = it->f_cost + it->h_cost; */
       it->g_cost     = fmax(it->f_cost + it->h_cost + (-1 + (1 - 1 / it->h_cost)), 0.0);
       it->parent_key = current.key;
-      it->pose       = planning_octree_->keyToCoord(it->key);  // needed only for the visualization, otherwise unused
       if (it->h_cost < nearest.h_cost) {
         nearest = *it;
       }
@@ -531,18 +533,110 @@ std::vector<Node> AstarPlanner::getNodePath() {
                   waypoints[counter].key.k[1], waypoints[counter].key.k[2]);
     /* sleep(0.1); */
   }
-
   // reverse the path from end to beginning
   ROS_INFO_COND(debug_, "[AstarPlanner]: reversing waypoints");
   std::reverse(waypoints.begin(), waypoints.end());
-
+  waypoints_init.insert(waypoints_init.end(), waypoints.begin(), waypoints.end());
   /* stop_index         = 15; */
   /* start_node_next    = waypoints[0]; */
   ros::Time end_time = ros::Time::now();
-  ROS_INFO_COND(debug_, "[AstarPlanner]: AstarPlanner: returning path of %lu waypoints", waypoints.size());
+  ROS_INFO_COND(debug_, "[AstarPlanner]: AstarPlanner: returning path of %lu waypoints", waypoints_init.size());
   ROS_WARN_COND(verbose_, "[AstarPlanner]: Path planning took %.3f ms", (end_time - start_time).toSec() * 1000.0);
+  return waypoints_init;
+}
+//}
+
+/* findPathToNearestFeasibleNode() //{ */
+
+std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(Node start) {
+
+  ros::Time         start_time = ros::Time::now();
+  std::vector<Node> waypoints;
+  if (!checkValidityWithKDTree(start)) {  // start is not feasible, try to find closest feasible point
+    ROS_INFO("[%s]: gpnfn start node is not collision free ", ros::this_node::getName().c_str());
+    double global_safe_dist = safe_dist_;
+    safe_dist_              = 0.0;
+    std::priority_queue<Node, std::vector<Node>, NodeCompare> heap;
+    std::unordered_set<Node, NodeHasher>                      closed;
+    std::unordered_map<Node, Node, NodeHasher>                parents;  // first = child, second = parent
+
+    Node start_l   = start;
+    start_l.g_cost = 0.0;
+    start_l.h_cost = pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(start_l.key));
+    heap.push(start_l);
+    Node current;
+    Node best = start_l;
+    int               loop_counter = 0;
+    std::vector<Node> neighbors;
+    int               iter_limits = 200;
+
+    while (!heap.empty() && loop_counter < iter_limits) {
+
+      current = heap.top();
+      heap.pop();
+
+      neighbors = getNeighborhood26(current);
+
+      for (std::vector<Node>::iterator it = neighbors.begin(); it != neighbors.end(); ++it) {
+
+        if (planning_octree_->isNodeOccupied(planning_octree_->search(it->key))) {
+          continue;
+        }
+
+        if (closed.find(*it) != closed.end()) {
+          continue;
+        }
+
+        double obst_dist = pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(it->key));
+
+        if (obst_dist > global_safe_dist && current.h_cost >= start_.h_cost - 1.1 * resolution_) {
+          break;
+        }
+
+        it->f_cost     = global_safe_dist - obst_dist;
+        it->h_cost     = fmin(current.h_cost, it->f_cost);
+        it->g_cost     = current.g_cost + it->f_cost + 0.01;
+        it->parent_key = current.key;
+        parents[*it]   = current;
+        heap.push(*it);
+      }
+
+      if (best.f_cost + 0.2 * best.h_cost + 0.001 * best.g_cost < current.f_cost + 0.2 * current.h_cost + 0.001 * current.g_cost) {
+        best = current;
+      }
+
+      closed.insert(current);
+
+      loop_counter++;
+    }
+
+    safe_dist_ = global_safe_dist;  // reset  former value
+
+    if (loop_counter < iter_limits - 1 || current.h_cost >= start_.h_cost - 1.1 * resolution_) {  // solution found
+      waypoints.push_back(current);
+
+      while (abs(waypoints.back().g_cost) > 1e-5) {
+        waypoints.push_back(parents[waypoints.back()]);
+        waypoints.back().pose = planning_octree_->keyToCoord(waypoints.back().key);
+      }
+      std::reverse(waypoints.begin(), waypoints.end());
+    }
+
+    if (waypoints.size() > 0) {
+      waypoints.back().pose = planning_octree_->keyToCoord(waypoints.back().key);
+      ROS_INFO("[%s]: Replacing original start [%.2f, %.2f, %.2f] by start in the free space [%.2f, %.2f, %.2f].", ros::this_node::getName().c_str(),
+               start_.pose.x(), start_.pose.y(), start_.pose.z(), waypoints.back().pose.x(), waypoints.back().pose.y(), waypoints.back().pose.z());
+      for (int k = 0; k < waypoints.size(); k++) {
+        ROS_INFO("[%s]: escape path node [%d] = [ %.2f, %.2f, %.2f] ", ros::this_node::getName().c_str(), k, waypoints[k].pose.x(), waypoints[k].pose.y(),
+                 waypoints[k].pose.z());
+      }
+      start_ = waypoints.back();
+    }
+  }
+  ROS_INFO("[%s]: Getting path to nearest feasible node took %.3f", ros::this_node::getName().c_str(), (ros::Time::now() - start_time).toSec());
   return waypoints;
 }
+
 //}
 
 /* getLastFoundGoal() //{ */
