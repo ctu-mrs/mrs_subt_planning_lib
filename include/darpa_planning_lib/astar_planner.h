@@ -284,6 +284,7 @@ protected:
   std::vector<octomap::OcTreeKey> getFilteredNeighborhoodPlan(const std::vector<octomap::OcTreeKey>& plan);
   bool                            areKeysInTwoStepsDistance(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2);
   std::vector<octomap::OcTreeKey> getFilteredNeighborhoodPlan2(const std::vector<octomap::OcTreeKey>& original_path);
+  std::vector<Node>               getFilteredNeighborhoodPlan(const std::vector<Node>& original_path);
   std::vector<octomap::OcTreeKey> getZzFilteredPlan(const std::vector<octomap::OcTreeKey>& original_path, double tolerance);
 };
 }  // namespace darpa_planning

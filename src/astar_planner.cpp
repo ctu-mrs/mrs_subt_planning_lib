@@ -430,6 +430,10 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
   std::vector<Node> waypoints_init = getPathToNearestFeasibleNode(start_);
 
+  if (waypoints_init.size() > 0) {
+    start_ = waypoints_init.back();
+  }
+
   ROS_INFO_COND(debug_, "[AstarPlanner]: Add start into open list.");
   start_.f_cost = 0.0;
   open_list.push(start_);
@@ -551,7 +555,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
 std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(Node start) {
 
   ros::Time         start_time = ros::Time::now();
-  std::vector<Node> waypoints;
+  std::vector<Node> waypoints_filtered;
   if (!checkValidityWithKDTree(start)) {  // start is not feasible, try to find closest feasible point
     ROS_INFO("[%s]: gpnfn start node is not collision free ", ros::this_node::getName().c_str());
     double global_safe_dist = safe_dist_;
@@ -564,8 +568,8 @@ std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(Node start) {
     start_l.g_cost = 0.0;
     start_l.h_cost = pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(start_l.key));
     heap.push(start_l);
-    Node current;
-    Node best = start_l;
+    Node              current;
+    Node              best         = start_l;
     int               loop_counter = 0;
     std::vector<Node> neighbors;
     int               iter_limits = 200;
@@ -575,11 +579,20 @@ std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(Node start) {
       current = heap.top();
       heap.pop();
 
+      if (best.f_cost + 0.2 * best.h_cost + 0.001 * best.g_cost > current.f_cost + 0.2 * current.h_cost + 0.001 * current.g_cost) {
+        best = current;
+      }
+
+      if (current.f_cost < 0 && current.h_cost >= start_.h_cost - 1.1 * resolution_) {
+        best = current;
+        break;
+      }
+
       neighbors = getNeighborhood26(current);
 
       for (std::vector<Node>::iterator it = neighbors.begin(); it != neighbors.end(); ++it) {
 
-        if (planning_octree_->isNodeOccupied(planning_octree_->search(it->key))) {
+        if (planning_octree_->search(it->key) == NULL || planning_octree_->isNodeOccupied(planning_octree_->search(it->key))) {
           continue;
         }
 
@@ -589,21 +602,16 @@ std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(Node start) {
 
         double obst_dist = pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(it->key));
 
-        if (obst_dist > global_safe_dist && current.h_cost >= start_.h_cost - 1.1 * resolution_) {
-          break;
-        }
 
         it->f_cost     = global_safe_dist - obst_dist;
-        it->h_cost     = fmin(current.h_cost, it->f_cost);
-        it->g_cost     = current.g_cost + it->f_cost + 0.01;
+        it->h_cost     = fmax(current.h_cost, it->f_cost);
+        it->g_cost     = current.g_cost + it->f_cost;
         it->parent_key = current.key;
         parents[*it]   = current;
+
         heap.push(*it);
       }
 
-      if (best.f_cost + 0.2 * best.h_cost + 0.001 * best.g_cost < current.f_cost + 0.2 * current.h_cost + 0.001 * current.g_cost) {
-        best = current;
-      }
 
       closed.insert(current);
 
@@ -612,29 +620,36 @@ std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(Node start) {
 
     safe_dist_ = global_safe_dist;  // reset  former value
 
-    if (loop_counter < iter_limits - 1 || current.h_cost >= start_.h_cost - 1.1 * resolution_) {  // solution found
-      waypoints.push_back(current);
+    std::vector<Node> waypoints;
+    if (loop_counter < iter_limits - 1 || best.h_cost <= start_.h_cost + 1.1 * resolution_) {  // solution found
+      waypoints.push_back(best);
 
       while (abs(waypoints.back().g_cost) > 1e-5) {
         waypoints.push_back(parents[waypoints.back()]);
         waypoints.back().pose = planning_octree_->keyToCoord(waypoints.back().key);
       }
-      std::reverse(waypoints.begin(), waypoints.end());
-    }
 
-    if (waypoints.size() > 0) {
-      waypoints.back().pose = planning_octree_->keyToCoord(waypoints.back().key);
-      ROS_INFO("[%s]: Replacing original start [%.2f, %.2f, %.2f] by start in the free space [%.2f, %.2f, %.2f].", ros::this_node::getName().c_str(),
-               start_.pose.x(), start_.pose.y(), start_.pose.z(), waypoints.back().pose.x(), waypoints.back().pose.y(), waypoints.back().pose.z());
-      for (int k = 0; k < waypoints.size(); k++) {
-        ROS_INFO("[%s]: escape path node [%d] = [ %.2f, %.2f, %.2f] ", ros::this_node::getName().c_str(), k, waypoints[k].pose.x(), waypoints[k].pose.y(),
-                 waypoints[k].pose.z());
+      std::reverse(waypoints.begin(), waypoints.end());
+
+      if (waypoints.size() > 0) {
+
+        waypoints_filtered = getFilteredNeighborhoodPlan(waypoints);
+        waypoints_filtered.back().pose = planning_octree_->keyToCoord(waypoints_filtered.back().key);
+        ROS_INFO("[%s]: Replacing original start [%.2f, %.2f, %.2f] by start in the free space [%.2f, %.2f, %.2f].", ros::this_node::getName().c_str(),
+                 start_.pose.x(), start_.pose.y(), start_.pose.z(), waypoints_filtered.back().pose.x(), waypoints_filtered.back().pose.y(),
+                 waypoints_filtered.back().pose.z());
+
+        for (int k = 0; k < waypoints_filtered.size(); k++) {
+          ROS_INFO("[%s]: escape path node [%d] = [ %.2f, %.2f, %.2f] ", ros::this_node::getName().c_str(), k, waypoints_filtered[k].pose.x(),
+                   waypoints_filtered[k].pose.y(), waypoints_filtered[k].pose.z());
+        }
+
       }
-      start_ = waypoints.back();
+
     }
   }
   ROS_INFO("[%s]: Getting path to nearest feasible node took %.3f", ros::this_node::getName().c_str(), (ros::Time::now() - start_time).toSec());
-  return waypoints;
+  return waypoints_filtered;
 }
 
 //}
@@ -817,6 +832,30 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getFilteredNeighborhoodPlan(const 
     point_added = false;
     for (int m = fmin(window_size, original_path.size() - 1 - k); m >= 0; m--) {
       if (areKeysInNeighborhood(new_path.back(), original_path[k + m])) {
+        new_path.push_back(original_path[k + m]);
+        k           = k + m;  // FIxME: check whether it works as intended
+        point_added = true;
+        break;
+      }
+    }
+    if (!point_added) {
+      new_path.push_back(original_path[k]);
+    }
+  }
+  return new_path;
+}
+//}
+
+/* getFilteredNeighborhoodPlan() //{ */
+std::vector<Node> AstarPlanner::getFilteredNeighborhoodPlan(const std::vector<Node>& original_path) {
+  std::vector<Node> new_path;
+  bool              point_added = false;
+  int               window_size = 14;
+  new_path.push_back(original_path[0]);
+  for (uint k = 0; k < original_path.size(); k++) {
+    point_added = false;
+    for (int m = fmin(window_size, original_path.size() - 1 - k); m >= 0; m--) {
+      if (areKeysInNeighborhood(new_path.back().key, original_path[k + m].key)) {
         new_path.push_back(original_path[k + m]);
         k           = k + m;  // FIxME: check whether it works as intended
         point_added = true;
