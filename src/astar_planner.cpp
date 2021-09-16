@@ -440,7 +440,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
   Node current;
   Node nearest     = start_;
   nearest.h_cost   = DBL_MAX;
-  int loop_counter = 0;
+  int loop_counter = 1;
   int node_removed = 0;  // 0 for not present in open list, 1 for present and removed, -1 for present and not removed
   ROS_INFO_COND(debug_, "[AstarPlanner]: Start key = [%d, %d, %d]", start_.key.k[0], start_.key.k[1], start_.key.k[2]);
   ROS_INFO_COND(debug_, "[AstarPlanner]: Goal key = [%d, %d, %d]", goal_.key.k[0], goal_.key.k[1], goal_.key.k[2]);
