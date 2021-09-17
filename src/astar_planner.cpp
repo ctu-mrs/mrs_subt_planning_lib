@@ -488,7 +488,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
       it->f_cost = new_cost;
       it->h_cost = astar_admissibility_ * euclideanCost(*it);
       /* it->g_cost = it->f_cost + it->h_cost; */
-      it->g_cost     = fmax(it->f_cost + it->h_cost + (-1 + (1 - 1 / it->h_cost)), 0.0);
+      it->g_cost     = it->f_cost + it->h_cost;
       it->parent_key = current.key;
       if (it->h_cost < nearest.h_cost) {
         nearest = *it;
@@ -1635,7 +1635,7 @@ std::vector<Node> AstarPlanner::getPossibleSuccessors(const octomap::OcTreeKey& 
         successors.push_back(neighbor);
       }
     }
-  } else if (move_length == 2.0) {  // 2D - diagonal
+  } else if (move_length == 2) {  // 2D - diagonal
     /* ROS_INFO("[AstarPlanner]: Move length == 2"); */
     int u_coord = current.k[0] == parent.k[0] ? 0 : current.k[1] == parent.k[1] ? 1 : 2;
     int c_1     = u_coord == 0 ? 1 : 0;
