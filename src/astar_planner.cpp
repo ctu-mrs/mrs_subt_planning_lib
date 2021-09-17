@@ -461,7 +461,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
       break;
     }
     std::vector<Node> neighbors;
-    if (loop_counter == 0) {
+    if (loop_counter == 1) {
       neighbors = getNeighborhood26(current);
     } else {
       neighbors = getPossibleSuccessors(current.parent_key, current.key);
