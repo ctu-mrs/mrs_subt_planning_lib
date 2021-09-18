@@ -561,7 +561,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
 /* findPathToNearestFeasibleNode() //{ */
 
-std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(Node start) {
+std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(const Node& start) {
 
   ros::Time         start_time = ros::Time::now();
   std::vector<Node> waypoints_filtered;

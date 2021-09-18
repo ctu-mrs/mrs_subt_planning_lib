@@ -243,7 +243,7 @@ protected:
   void                                         publishOpenAndClosedList(AstarPriorityQueue open_list, std::unordered_set<Node, NodeHasher> closed_list);
   void                                         replaceUnknownByFreeCells(const octomap::OcTreeKey& start_key, double box_size);
   void                                         publishOccupiedPcl(std::vector<pcl::PointXYZ>& pcl_points);
-  std::vector<Node>                            getPathToNearestFeasibleNode(Node start);
+  std::vector<Node>                            getPathToNearestFeasibleNode(const Node &start);
 
   // params
   bool   use_neighborhood_6_;
