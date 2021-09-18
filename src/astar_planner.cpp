@@ -377,6 +377,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
   std::vector<Node>                            waypoints;
   AstarPriorityQueue                           open_list;
   std::unordered_set<Node, NodeHasher>         closed_list;
+  std::unordered_set<Node, NodeHasher>         open_set;
   std::unordered_map<Node, Node, NodeHasher>   parent_list;
   std::unordered_map<Node, double, NodeHasher> cost_so_far;
 
@@ -473,18 +474,25 @@ std::vector<Node> AstarPlanner::getNodePath() {
         continue;
       }
 
-      double new_cost = current.f_cost + nodeDistance(current, *it);  // nodeDistance can be replaced with 1.0 for 6 neighborhood
-      node_removed    = open_list.conditional_remove(*it, new_cost);
-      if (node_removed) {          // node present in open list
-        if (node_removed == -1) {  // node present with better cost
-          continue;
-        }
-      } else if (closed_list.find(*it) != closed_list.end()) {
-        if (cost_so_far[*it] <= new_cost) {
-          continue;
-        }
-        closed_list.erase(*it);
+      if (closed_list.find(*it) != closed_list.end() || open_set.find(*it) != open_set.end()) {
+        continue;
       }
+
+      double new_cost = current.f_cost + nodeDistance(current, *it);  // nodeDistance can be replaced with 1.0 for 6 neighborhood
+
+      /* node_removed    = open_list.conditional_remove(*it, new_cost); */
+      /* if (node_removed) {          // node present in open list */
+      /*   if (node_removed == -1) {  // node present with better cost */
+      /*     continue; */
+      /*   } */
+      /* } else if (closed_list.find(*it) != closed_list.end()) { */
+      /*   if (cost_so_far[*it] <= new_cost) { */
+      /*     continue; */
+      /*   } */
+      /*   closed_list.erase(*it); */
+      /* } */
+
+
       it->f_cost = new_cost;
       it->h_cost = astar_admissibility_ * euclideanCost(*it);
       /* it->g_cost = it->f_cost + it->h_cost; */
@@ -494,6 +502,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
         nearest = *it;
       }
       parent_list[*it] = current;
+      open_set.insert(*it);
       open_list.push(*it);
     }
     closed_list.insert(current);

@@ -49,6 +49,11 @@ struct Node
     return key == b.key;
   }
 
+
+  bool operator!=(const Node b) {
+    return key != b.key;
+  }
+
   bool operator<(Node b) {
     return ((key.k[0] + key.k[1] + key.k[2]) < (b.key.k[0] + b.key.k[1] + b.key.k[2])) &&
            ((key.k[0] != b.key.k[0]) || (key.k[1] != b.key.k[1]) || (key.k[2] != b.key.k[2]));
