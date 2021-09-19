@@ -592,7 +592,7 @@ std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(const Node& start) 
         best = current;
       }
 
-      if (current.f_cost < 0 && current.h_cost >= start_.h_cost - 1.1 * resolution_) {
+      if (current.f_cost <= 0) {
         best = current;
         break;
       }
