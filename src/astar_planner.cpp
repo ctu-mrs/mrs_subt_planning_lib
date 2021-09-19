@@ -576,6 +576,7 @@ std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(const Node& start) 
     Node start_l   = start;
     start_l.g_cost = 0.0;
     start_l.h_cost = pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(start_l.key));
+    start_l.f_cost = start_l.h_cost;
     heap.push(start_l);
     Node              current;
     Node              best         = start_l;
