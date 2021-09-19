@@ -438,6 +438,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
   ROS_INFO_COND(debug_, "[AstarPlanner]: Add start into open list.");
   start_.f_cost = 0.0;
   open_list.push(start_);
+  closed_list.insert(start_);
   Node current;
   Node nearest     = start_;
   nearest.h_cost   = DBL_MAX;
@@ -445,6 +446,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
   int node_removed = 0;  // 0 for not present in open list, 1 for present and removed, -1 for present and not removed
   ROS_INFO_COND(debug_, "[AstarPlanner]: Start key = [%d, %d, %d]", start_.key.k[0], start_.key.k[1], start_.key.k[2]);
   ROS_INFO_COND(debug_, "[AstarPlanner]: Goal key = [%d, %d, %d]", goal_.key.k[0], goal_.key.k[1], goal_.key.k[2]);
+
   while (!open_list.empty()) {
     if (loop_counter % 1000 == 0) {
       ROS_INFO_COND(debug_, "[AstarPlanner]: Loop counter = %d, open list size = %lu, closed_list_size = %lu", loop_counter, open_list.size(),
@@ -474,10 +476,11 @@ std::vector<Node> AstarPlanner::getNodePath() {
         continue;
       }
 
-      if (closed_list.find(*it) != closed_list.end() || open_set.find(*it) != open_set.end()) {
+      if (closed_list.find(*it) != closed_list.end()) {
         continue;
       }
 
+      closed_list.insert(*it);
       double new_cost = current.f_cost + nodeDistance(current, *it);  // nodeDistance can be replaced with 1.0 for 6 neighborhood
 
       /* node_removed    = open_list.conditional_remove(*it, new_cost); */
@@ -502,11 +505,11 @@ std::vector<Node> AstarPlanner::getNodePath() {
         nearest = *it;
       }
       parent_list[*it] = current;
-      open_set.insert(*it);
+      /* open_set.insert(*it); */
       open_list.push(*it);
     }
-    closed_list.insert(current);
-    cost_so_far[current] = current.f_cost;
+    /* closed_list.insert(current); */
+    /* cost_so_far[current] = current.f_cost; */
 
     loop_counter++;
   }
