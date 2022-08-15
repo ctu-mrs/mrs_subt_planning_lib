@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>darpa_planning_lib</name>
+  <name>mrs_subt_planning_lib</name>
   <version>0.0.3</version>
   <description>Package for planning in darpa SubT challenge</description>
 

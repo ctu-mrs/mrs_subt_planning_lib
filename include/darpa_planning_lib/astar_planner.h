@@ -10,11 +10,11 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <visualization_msgs/MarkerArray.h>
-#include "darpa_planning_lib/pcl_map.h"
+#include "mrs_subt_planning_lib/pcl_map.h"
 #include <iostream>
 
 
-namespace darpa_planning
+namespace mrs_subt_planning
 {
 
 typedef pcl::PointCloud<pcl::PointXYZ> PCLCloud;
@@ -293,6 +293,6 @@ protected:
   std::vector<Node>               getFilteredNeighborhoodPlan(const std::vector<Node>& original_path);
   std::vector<octomap::OcTreeKey> getZzFilteredPlan(const std::vector<octomap::OcTreeKey>& original_path, double tolerance);
 };
-}  // namespace darpa_planning
+}  // namespace mrs_subt_planning
 
 #endif

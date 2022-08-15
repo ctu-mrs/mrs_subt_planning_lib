@@ -1,7 +1,7 @@
 #include <ros/ros.h>
-#include <darpa_planning_lib/pcl_map.h>
+#include <mrs_subt_planning_lib/pcl_map.h>
 
-using namespace darpa_planning;
+using namespace mrs_subt_planning;
 
 #define RESOLUTION 0.1f
 

@@ -13,7 +13,7 @@
 #include <octomap_msgs/conversions.h>
 #include <octomap_msgs/Octomap.h>
 
-namespace darpa_planning
+namespace mrs_subt_planning
 {
 
 /**
@@ -82,6 +82,6 @@ private:
   /* pcl::octree::OctreePointCloud */
 };
 
-}  // namespace darpa_planning
+}  // namespace mrs_subt_planning
 
 #endif

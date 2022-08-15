@@ -1,7 +1,7 @@
-#include "darpa_planning_lib/astar_planner.h"
+#include "mrs_subt_planning_lib/astar_planner.h"
 
 using namespace std;
-using namespace darpa_planning;
+using namespace mrs_subt_planning;
 
 AstarPlanner::AstarPlanner(void) {
   initialized_ = false;

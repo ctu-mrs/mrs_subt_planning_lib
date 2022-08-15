@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(darpa_planning_lib)
+project(mrs_subt_planning_lib)
 
 # Override CXX flags inherited from workspace, if precompiled PCL binaries from debian repos are used
 if (DEFINED ENV{PCL_CROSS_COMPILATION})
@@ -56,7 +56,7 @@ catkin_package(
   INCLUDE_DIRS include
   CATKIN_DEPENDS roscpp std_msgs sensor_msgs 
   DEPENDS PCL
-  LIBRARIES DarpaPlanningLib 
+  LIBRARIES MrsSubtPlanningLib 
   )
 
 ###########
@@ -78,18 +78,17 @@ add_definitions(
   ${PCL_DEFINITIONS}
 )
 
-add_library(DarpaPlanningLib
+add_library(MrsSubtPlanningLib
   src/astar_planner.cpp
   src/pcl_map.cpp
-  src/darpa_explorer.cpp
   )
 
-add_dependencies(DarpaPlanningLib
+add_dependencies(MrsSubtPlanningLib
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(DarpaPlanningLib
+target_link_libraries(MrsSubtPlanningLib
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
   )
@@ -98,7 +97,7 @@ target_link_libraries(DarpaPlanningLib
 ## Install ##
 #############
 
-# install(TARGETS DarpaPlanningLibrary
+# install(TARGETS MrsSubtPlanningLibrary
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
