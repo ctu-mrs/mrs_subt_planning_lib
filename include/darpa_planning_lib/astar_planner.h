@@ -160,6 +160,7 @@ public:
   std::vector<octomap::point3d>   getLocalPath(const std::vector<Node>& node_path);
   std::vector<octomap::OcTreeKey> getSafePath(const std::vector<octomap::OcTreeKey>& key_path, double safe_dist, int max_iteration, double z_diff_tolerance,
                                               bool fix_goal_point);
+  std::vector<octomap::point3d>   getStraightenWaypointPath(std::vector<Node> node_path, double dist_step);
   std::vector<octomap::OcTreeKey> getFilteredPlan(const std::vector<octomap::OcTreeKey>& original_path, int size_of_window, double enabled_filtering_dist);
   std::pair<int, int> firstUnfeasibleNodeInPath(const std::vector<octomap::OcTreeKey>& key_waypoints, const std::vector<geometry_msgs::Point>& pose_array,
                                                 int n_points_forward, const octomap::point3d& current_pose, double safe_dist_for_replanning_,

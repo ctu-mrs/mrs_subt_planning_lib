@@ -960,6 +960,50 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getStraightenKeyPath(const std::ve
 }
 //}
 
+/* getStraightenWaypointPath() //{ */
+std::vector<octomap::point3d> AstarPlanner::getStraightenWaypointPath(std::vector<Node> node_path, double dist_step) {
+  std::vector<octomap::point3d> waypoints;
+  if (node_path.empty()) {
+    ROS_WARN("[AstarPlanner]: AstarPlanner: Empty node path received. Returning empty plan.");
+    return waypoints;
+  }
+
+  double dx, dy, dz, dl;
+  size_t s, e;
+  int steps;
+  bool is_collision_free;
+  waypoints.push_back(node_path.front().pose);
+
+  for (s = 0; s < node_path.size(); s++) {
+    for (e = node_path.size() - 1; e > s; e--) {
+      dx = node_path[e].pose.x() - node_path[s].pose.x();
+      dy = node_path[e].pose.y() - node_path[s].pose.y();
+      dz = node_path[e].pose.z() - node_path[s].pose.z();
+      dl = sqrt(pow(dx, 2) + pow(dy, 2) + pow(dz, 2));
+      steps = ceil(dl / dist_step);
+      is_collision_free = true;
+      
+      for (int k = 0; k < steps; k++) {
+        octomap::point3d point;
+        if (!checkValidityWithNeighborhood(planning_octree_->coordToKey(node_path[s].pose.x() + k*dx/steps, node_path[s].pose.y() + k*dy/steps, node_path[s].pose.z() + k*dz/steps))) {
+          is_collision_free = false;
+          break;
+        }
+      }
+
+      if (is_collision_free) { 
+        break;
+      }
+
+    }
+    waypoints.push_back(node_path[e].pose); 
+    s = e;
+  }
+
+  return waypoints;
+}
+//}
+
 /* getFilteredPlan() //{ */
 std::vector<octomap::OcTreeKey> AstarPlanner::getFilteredPlan(const std::vector<octomap::OcTreeKey>& original_path, int window_size,
                                                               double enabled_filtering_dist) {
