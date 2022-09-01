@@ -4,14 +4,15 @@
 #include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
 #include <mrs_lib/param_loader.h>
+#include <mrs_lib/batch_visualizer.h>
 #include <geometry_msgs/PoseArray.h>
 #include <vector>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
 #include <visualization_msgs/MarkerArray.h>
-#include "mrs_subt_planning_lib/pcl_map.h"
 #include <iostream>
+#include "mrs_subt_planning_lib/pcl_map.h"
 
 
 namespace mrs_subt_planning
@@ -142,19 +143,15 @@ public:
   virtual ~AstarPlanner();
 
   void initialize(octomap::point3d start_point, octomap::point3d goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
-                  bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, bool debug,
-                  bool resolution_increased, const bool break_at_timeout = false);  // for backward compatibility only
+                  bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, double min_altitude, double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout = false);  // for backward compatibility only
 
-  void initialize(bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, bool debug,
-                  const bool break_at_timeout = false);
+  void initialize(bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, double min_altitude, double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout = false);
 
   std::vector<Node> getNodePath();  // for backward compatibility only
   std::vector<Node> getNodePath(const octomap::point3d& start_point, const octomap::point3d& goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
-                                bool resolution_increased = false, bool ignore_unknown_cells_near_start = false,
-                                double box_size_for_unknown_cells_replacement = 2.0);
+                                bool ignore_unknown_cells_near_start = false, double box_size_for_unknown_cells_replacement = 2.0);
   std::vector<Node> getNodePath(const std::vector<octomap::point3d>& initial_waypoints, std::shared_ptr<octomap::OcTree> planning_octree,
-                                bool resolution_increased = false, bool ignore_unknown_cells_near_start = false,
-                                double box_size_for_unknown_cells_replacement = 2.0);
+                                bool ignore_unknown_cells_near_start = false, double box_size_for_unknown_cells_replacement = 2.0);
   std::vector<octomap::point3d>   getWaypointPath(const std::vector<Node>& node_path);
   std::vector<octomap::point3d>   getWaypointPath(const std::vector<octomap::OcTreeKey>& key_path);
   std::vector<octomap::point3d>   getLocalPath(const std::vector<Node>& node_path);
@@ -172,6 +169,17 @@ public:
   void                            setVerbose(const bool verbose);
   void                            setSafeDist(const double safe_dist);
   void                            setAstarAdmissibility(const double astar_admissibility);
+
+  std::pair<std::vector<octomap::point3d>, bool> findPath(const octomap::point3d& start_point, const octomap::point3d& goal_point,
+                                                          std::shared_ptr<octomap::OcTree> planning_octree, bool make_path_straight, bool apply_postprocessing, bool ignore_unknown_cells_near_start = false,
+                                                          double box_size_for_unknown_cells_replacement = 2.0);
+
+  octomap::OcTreeNode *touchNode(std::shared_ptr<octomap::OcTree> &octree, const octomap::OcTreeKey &key, unsigned int target_depth = 0);
+
+  octomap::OcTreeNode *touchNodeRecurs(std::shared_ptr<octomap::OcTree> &octree, octomap::OcTreeNode *node, const octomap::OcTreeKey &key, unsigned int depth,
+                                       unsigned int max_depth = 0);
+
+  std::shared_ptr<octomap::OcTree> createPlanningTree(std::shared_ptr<octomap::OcTree> tree, const octomap::point3d &start, double resolution, std::vector<double> bbx);
 
 protected:
   PCLMap pcl_map_;
@@ -199,6 +207,8 @@ protected:
   Node start_node_next;
   Node last_found_goal_;
   int  stop_index;
+
+  std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer_;
 
   bool                            isNodeValid(const Node& n);
   bool                            isNodeGoal(const Node& n);
@@ -244,7 +254,10 @@ protected:
   void                                         publishOpenAndClosedList(AstarPriorityQueue open_list, std::unordered_set<Node, NodeHasher> closed_list);
   void                                         replaceUnknownByFreeCells(const octomap::OcTreeKey& start_key, double box_size);
   void                                         publishOccupiedPcl(std::vector<pcl::PointXYZ>& pcl_points);
-  std::vector<Node>                            getPathToNearestFeasibleNode(const Node &start);
+  std::vector<Node>                            getPathToNearestFeasibleNode(const Node& start);
+
+  void visualizeExpansions(const std::unordered_set<Node, NodeHasher> &open, const std::unordered_set<Node, NodeHasher> &closed, octomap::OcTree &tree);
+  void visualizeGoal(const octomap::point3d &goal);
 
   // params
   bool   use_neighborhood_6_;
@@ -257,7 +270,8 @@ protected:
   double safe_dist_;
   double safe_dist_prev_;
   double clearing_dist_;
-  bool   resolution_increased_;
+  double min_altitude_;
+  double max_altitude_;
   bool   break_at_timeout_;
 
   // pruning
@@ -292,6 +306,8 @@ protected:
   std::vector<octomap::OcTreeKey> getFilteredNeighborhoodPlan2(const std::vector<octomap::OcTreeKey>& original_path);
   std::vector<Node>               getFilteredNeighborhoodPlan(const std::vector<Node>& original_path);
   std::vector<octomap::OcTreeKey> getZzFilteredPlan(const std::vector<octomap::OcTreeKey>& original_path, double tolerance);
+
+  double map_conversion_time_;
 };
 }  // namespace mrs_subt_planning
 
