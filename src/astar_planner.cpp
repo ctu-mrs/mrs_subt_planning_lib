@@ -27,7 +27,7 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
   resolution_   = planning_octree_->getResolution();
   ROS_INFO("[AstarPlanner]: Astarplanner with resolution %.2f initialized", resolution_);
   enable_planning_to_unreachable_goal_ = enable_planning_to_unreachable_goal;
-  planning_timeout_                    = planning_timeout - 0.2;
+  planning_timeout_                    = planning_timeout - 0.6;
   debug_                               = debug;
   safe_dist_                           = safe_dist;
   safe_dist_prev_                      = safe_dist_;
@@ -51,7 +51,7 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
 void AstarPlanner::initialize(bool enable_planning_to_unreachable_goal, double planning_timeout, double safe_dist, double clearing_dist, double min_altitude,
                               double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout) {
   enable_planning_to_unreachable_goal_ = enable_planning_to_unreachable_goal;
-  planning_timeout_                    = planning_timeout - 0.2;
+  planning_timeout_                    = planning_timeout - 0.6;
   debug_                               = debug;
   safe_dist_                           = safe_dist;
   safe_dist_prev_                      = safe_dist_;
@@ -165,10 +165,9 @@ std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(const octo
 
   start = ros::Time::now();
   if (apply_postprocessing) {
-    waypoints_keys = getSafePath(getKeyPath(node_path), 2.5, 5, 0.3, true);
-    waypoints      = getWaypointPath(waypoints_keys);
-
-    std::vector<octomap::OcTreeKey> safe_filtered_key_plan = getFilteredPlan(waypoints_keys, 20, 0.75);  // FIXME: check whether there was no reason to comment this out
+    waypoints_keys = getSafePath(getKeyPath(node_path), 2.5, 5, 0.5, true);
+    std::vector<octomap::OcTreeKey> safe_filtered_key_plan = getFilteredPlan(waypoints_keys, 20, 1.00);  // FIXME: check whether there was no reason to comment this out
+    waypoints      = getWaypointPath(safe_filtered_key_plan);
 
     ROS_INFO("[%s]: Path postprocessing took %.2f s.", ros::this_node::getName().c_str(), (ros::Time::now() - start).toSec());
   } else if (make_path_straight) {
@@ -341,11 +340,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
   ros::Time start_time = ros::Time::now();
   ROS_INFO_COND(debug_, "[AstarPlanner] Start octomap to pointcloud");
-  /* int nc = 300; // TODO: add param */
-  /* std::vector<int> map_limits = {start_.key.k[0] - nc, start_.key.k[0] + nc, start_.key.k[1] - nc, start_.key.k[1] + nc, start_.key.k[2] - nc,
-   * start_.key.k[2] + nc}; */
-  std::vector<pcl::PointXYZ> pcl_points =
-      octomapToPointcloud();  // TODO: replace by detection of maxmin x, maxmin y and maxmin z, for reasonable setting of are
+  std::vector<pcl::PointXYZ> pcl_points = octomapToPointcloud();  // TODO: replace by detection of maxmin x, maxmin y and maxmin z, for reasonable setting of are
   publishOccupiedPcl(pcl_points);
 
   if (pcl_points.size() > 0) {
@@ -796,9 +791,9 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
     ROS_WARN_COND(debug_, "[AstarPlanner]: ------------------------------------------------------------------------");
   }
   end_time = ros::Time::now();
-  /* local_path_keys = getFilteredNeighborhoodPlan(local_path_keys); */
-  /* local_path_keys = getStraightenKeyPath(local_path_keys); */
-  /* local_path_keys = getZzFilteredPlan(local_path_keys, z_diff_tolerance); */
+  local_path_keys = getFilteredNeighborhoodPlan(local_path_keys);
+  local_path_keys = getStraightenKeyPath(local_path_keys);
+  local_path_keys = getZzFilteredPlan(local_path_keys, z_diff_tolerance);
   ROS_WARN_COND(debug_, "Get safe path took %.2f ms", (end_time - start_time).toSec() * 1000.0);
 
   return local_path_keys;
