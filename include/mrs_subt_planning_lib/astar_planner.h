@@ -143,9 +143,12 @@ public:
   virtual ~AstarPlanner();
 
   void initialize(octomap::point3d start_point, octomap::point3d goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
-                  bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, double min_altitude, double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout = false);  // for backward compatibility only
+                  bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, double min_altitude,
+                  double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer,
+                  const bool break_at_timeout = false);  // for backward compatibility only
 
-  void initialize(bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, double min_altitude, double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout = false);
+  void initialize(bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, double min_altitude,
+                  double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout = false);
 
   std::vector<Node> getNodePath();  // for backward compatibility only
   std::vector<Node> getNodePath(const octomap::point3d& start_point, const octomap::point3d& goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
@@ -156,8 +159,8 @@ public:
   std::vector<octomap::point3d>   getWaypointPath(const std::vector<octomap::OcTreeKey>& key_path);
   std::vector<octomap::point3d>   getLocalPath(const std::vector<Node>& node_path);
   std::vector<octomap::OcTreeKey> getSafePath(const std::vector<octomap::OcTreeKey>& key_path, double safe_dist, int max_iteration, double z_diff_tolerance,
-                                              bool fix_goal_point);
-  std::vector<octomap::point3d>   getStraightenWaypointPath(std::vector<Node> node_path, double dist_step);
+                                              bool fix_goal_point, bool horizontal_neighbors_only);
+  std::vector<octomap::point3d>   getStraightenWaypointPath(std::vector<Node>& node_path, double dist_step);
   std::vector<octomap::OcTreeKey> getFilteredPlan(const std::vector<octomap::OcTreeKey>& original_path, int size_of_window, double enabled_filtering_dist);
   std::pair<int, int> firstUnfeasibleNodeInPath(const std::vector<octomap::OcTreeKey>& key_waypoints, const std::vector<geometry_msgs::Point>& pose_array,
                                                 int n_points_forward, const octomap::point3d& current_pose, double safe_dist_for_replanning_,
@@ -171,15 +174,19 @@ public:
   void                            setAstarAdmissibility(const double astar_admissibility);
 
   std::pair<std::vector<octomap::point3d>, bool> findPath(const octomap::point3d& start_point, const octomap::point3d& goal_point,
-                                                          std::shared_ptr<octomap::OcTree> planning_octree, bool make_path_straight, bool apply_postprocessing, bool ignore_unknown_cells_near_start = false,
-                                                          double box_size_for_unknown_cells_replacement = 2.0);
+                                                          std::shared_ptr<octomap::OcTree> planning_octree, bool make_path_straight, bool apply_postprocessing,
+                                                          double planning_bbx_size_h, double planning_bbx_size_v, double postprocessing_safe_dist,
+                                                          int postprocessing_max_iterations, bool postprocessing_horizontal_neighbors_only,
+                                                          double postprocessing_z_tolerance, int shortening_window_size, double shortening_dist,
+                                                          bool ignore_unknown_cells_near_start = false, double box_size_for_unknown_cells_replacement = 2.0);
 
-  octomap::OcTreeNode *touchNode(std::shared_ptr<octomap::OcTree> &octree, const octomap::OcTreeKey &key, unsigned int target_depth = 0);
+  octomap::OcTreeNode* touchNode(std::shared_ptr<octomap::OcTree>& octree, const octomap::OcTreeKey& key, unsigned int target_depth = 0);
 
-  octomap::OcTreeNode *touchNodeRecurs(std::shared_ptr<octomap::OcTree> &octree, octomap::OcTreeNode *node, const octomap::OcTreeKey &key, unsigned int depth,
+  octomap::OcTreeNode* touchNodeRecurs(std::shared_ptr<octomap::OcTree>& octree, octomap::OcTreeNode* node, const octomap::OcTreeKey& key, unsigned int depth,
                                        unsigned int max_depth = 0);
 
-  std::shared_ptr<octomap::OcTree> createPlanningTree(std::shared_ptr<octomap::OcTree> tree, const octomap::point3d &start, double resolution, std::vector<double> bbx);
+  std::shared_ptr<octomap::OcTree> createPlanningTree(std::shared_ptr<octomap::OcTree> tree, const octomap::point3d& start, double resolution,
+                                                      std::vector<double> bbx);
 
 protected:
   PCLMap pcl_map_;
@@ -218,6 +225,7 @@ protected:
   std::vector<Node>               getNeighborhood6(const Node& n);
   std::vector<Node>               getNeighborhood26(const Node& n);
   std::vector<octomap::OcTreeKey> getKeyNeighborhood6(const octomap::OcTreeKey& k);
+  std::vector<octomap::OcTreeKey> getKeyNeighborhood8(const octomap::OcTreeKey& k);
   std::vector<octomap::OcTreeKey> getKeyNeighborhood26(const octomap::OcTreeKey& k);
   double                          nodeDistance(const Node& a, const Node& b);
   bool                            checkValidityWithNeighborhood(const Node& a);
@@ -227,7 +235,7 @@ protected:
   std::vector<int>                getMapLimits(const std::vector<octomap::OcTreeKey>& plan, int start_index, int end_index, int xy_reserve, int z_reserve);
   bool                            checkLimits(const std::vector<int>& map_limits, const Node& n);
   bool                            isNodeInTheNeighborhood(const octomap::OcTreeKey& n, const octomap::OcTreeKey& center, double dist);
-  octomap::OcTreeKey              getBestNeighbor(const octomap::OcTreeKey& k);
+  octomap::OcTreeKey              getBestNeighbor(const octomap::OcTreeKey& k, bool horizontal_neighbors_only);
   int                             isConnectivityMaintained(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2);
   octomap::OcTreeKey              findConnection(const octomap::OcTreeKey& k1, const octomap::OcTreeKey& k2, double original_obs_dist);
   pcl::PointXYZ                   octomapKeyToPclPoint(const octomap::OcTreeKey& octo_key);
@@ -255,9 +263,11 @@ protected:
   void                                         replaceUnknownByFreeCells(const octomap::OcTreeKey& start_key, double box_size);
   void                                         publishOccupiedPcl(std::vector<pcl::PointXYZ>& pcl_points);
   std::vector<Node>                            getPathToNearestFeasibleNode(const Node& start);
+  double                                       pointLineDist(octomap::point3d lb, octomap::point3d le, octomap::point3d point);
+  std::vector<octomap::point3d>                getWaypointPathWithoutObsoletePoints(std::vector<octomap::point3d>& waypoint_path, double tolerance);
 
-  void visualizeExpansions(const std::unordered_set<Node, NodeHasher> &open, const std::unordered_set<Node, NodeHasher> &closed, octomap::OcTree &tree);
-  void visualizeGoal(const octomap::point3d &goal);
+  void visualizeExpansions(const std::unordered_set<Node, NodeHasher>& open, const std::unordered_set<Node, NodeHasher>& closed, octomap::OcTree& tree);
+  void visualizeGoal(const octomap::point3d& goal);
 
   // params
   bool   use_neighborhood_6_;
