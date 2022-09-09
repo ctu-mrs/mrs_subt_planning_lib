@@ -27,7 +27,7 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
   resolution_   = planning_octree_->getResolution();
   ROS_INFO("[AstarPlanner]: Astarplanner with resolution %.2f initialized", resolution_);
   enable_planning_to_unreachable_goal_ = enable_planning_to_unreachable_goal;
-  planning_timeout_                    = planning_timeout - 0.6;
+  planning_timeout_                    = planning_timeout - 0.2;
   debug_                               = debug;
   safe_dist_                           = safe_dist;
   safe_dist_prev_                      = safe_dist_;
@@ -51,7 +51,7 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
 void AstarPlanner::initialize(bool enable_planning_to_unreachable_goal, double planning_timeout, double safe_dist, double clearing_dist, double min_altitude,
                               double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout) {
   enable_planning_to_unreachable_goal_ = enable_planning_to_unreachable_goal;
-  planning_timeout_                    = planning_timeout - 0.6;
+  planning_timeout_                    = planning_timeout - 0.2;
   debug_                               = debug;
   safe_dist_                           = safe_dist;
   safe_dist_prev_                      = safe_dist_;
@@ -156,8 +156,8 @@ std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(const octo
                                                                       bool apply_postprocessing, double planning_bbx_size_h, double planning_bbx_size_v,
                                                                       double postprocessing_safe_dist, int postprocessing_max_iterations,
                                                                       bool postprocessing_horizontal_neighbors_only, double postprocessing_z_tolerance,
-                                                                      int shortening_window_size, double shortening_dist, bool ignore_unknown_cells_near_start,
-                                                                      double box_size_for_unknown_cells_replacement) {
+                                                                      int shortening_window_size, double shortening_dist, bool apply_pruning, double pruning_dist, 
+                                                                      bool ignore_unknown_cells_near_start, double box_size_for_unknown_cells_replacement) {
 
   if (make_path_straight && apply_postprocessing) {
     ROS_WARN("[%s]: The path straightening cannot be applied together with the path postprocessing. ", ros::this_node::getName().c_str());
@@ -187,6 +187,11 @@ std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(const octo
   } else {
     waypoints = getWaypointPath(node_path);
   }
+
+  if (apply_pruning) {
+    waypoints = pruneWaypoints(waypoints, pruning_dist);
+  }
+
   waypoints = getWaypointPathWithoutObsoletePoints(waypoints, 0.05);
 
   ROS_INFO("[%s]: ----------------- Init path -------------------", ros::this_node::getName().c_str());
@@ -935,6 +940,28 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getStraightenKeyPath(const std::ve
     }
   }
   return straighten_path;
+}
+//}
+
+/* pruneWaypoints() //{ */
+std::vector<octomap::point3d> AstarPlanner::pruneWaypoints(std::vector<octomap::point3d>& waypoint_path, double pruning_dist) {
+
+  if (waypoint_path.size() < 3) {
+    ROS_WARN("[AstarPlanner]: Nothing to prune. Returning original path.");
+    return waypoint_path;
+  }
+
+  std::vector<octomap::point3d> pruned_path;
+  pruned_path.push_back(waypoint_path[0]);
+  for (size_t k = 1; k < waypoint_path.size()-1; k++) {
+    if (sqrt(pow(waypoint_path[k].x() - pruned_path.back().x(), 2) + pow(waypoint_path[k].y() - pruned_path.back().y(), 2) + pow(waypoint_path[k].z() - pruned_path.back().z(), 2)) > pruning_dist) { 
+      pruned_path.push_back(waypoint_path[k]);
+    }
+  }
+
+  pruned_path.push_back(waypoint_path.back());
+
+  return pruned_path;
 }
 //}
 

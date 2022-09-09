@@ -178,7 +178,8 @@ public:
                                                           double planning_bbx_size_h, double planning_bbx_size_v, double postprocessing_safe_dist,
                                                           int postprocessing_max_iterations, bool postprocessing_horizontal_neighbors_only,
                                                           double postprocessing_z_tolerance, int shortening_window_size, double shortening_dist,
-                                                          bool ignore_unknown_cells_near_start = false, double box_size_for_unknown_cells_replacement = 2.0);
+                                                          bool apply_pruning, double pruning_dist, bool ignore_unknown_cells_near_start = false,
+                                                          double box_size_for_unknown_cells_replacement = 2.0);
 
   octomap::OcTreeNode* touchNode(std::shared_ptr<octomap::OcTree>& octree, const octomap::OcTreeKey& key, unsigned int target_depth = 0);
 
@@ -265,6 +266,7 @@ protected:
   std::vector<Node>                            getPathToNearestFeasibleNode(const Node& start);
   double                                       pointLineDist(octomap::point3d lb, octomap::point3d le, octomap::point3d point);
   std::vector<octomap::point3d>                getWaypointPathWithoutObsoletePoints(std::vector<octomap::point3d>& waypoint_path, double tolerance);
+  std::vector<octomap::point3d>                pruneWaypoints(std::vector<octomap::point3d>& waypoint_path, double pruning_dist);
 
   void visualizeExpansions(const std::unordered_set<Node, NodeHasher>& open, const std::unordered_set<Node, NodeHasher>& closed, octomap::OcTree& tree);
   void visualizeGoal(const octomap::point3d& goal);
