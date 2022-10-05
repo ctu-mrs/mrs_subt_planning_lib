@@ -500,7 +500,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
   batch_visualizer_->clearVisuals();
   batch_visualizer_->clearBuffers();
-  visualizeGoal(planning_octree_->keyToCoord(goal_.key));
+  /* visualizeGoal(planning_octree_->keyToCoord(goal_.key)); */
   ROS_INFO("[AstarPlanner debug]: Open set size %lu.", open_set.size());
   visualizeExpansions(open_set, closed_list, *planning_octree_);
   batch_visualizer_->publish();
