@@ -35,6 +35,7 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
   break_at_timeout_                    = break_at_timeout;
   batch_visualizer_                    = batch_visualizer;
   map_conversion_time_                 = 0.0;
+  max_obst_dist_ = 1e6;
 
   initializeIdxsOfcellsForPruning();
   initialized_ = true;
@@ -49,7 +50,8 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
 
 /* initialize() //{ */
 void AstarPlanner::initialize(bool enable_planning_to_unreachable_goal, double planning_timeout, double safe_dist, double clearing_dist, double min_altitude,
-                              double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout) {
+                              double max_altitude, double max_obst_dist, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer,
+                              const bool break_at_timeout) {
   enable_planning_to_unreachable_goal_ = enable_planning_to_unreachable_goal;
   planning_timeout_                    = planning_timeout - 0.2;
   debug_                               = debug;
@@ -59,6 +61,7 @@ void AstarPlanner::initialize(bool enable_planning_to_unreachable_goal, double p
   break_at_timeout_                    = break_at_timeout;
   min_altitude_                        = min_altitude;
   max_altitude_                        = max_altitude;
+  max_obst_dist_                       = max_obst_dist;
   batch_visualizer_                    = batch_visualizer;
   map_conversion_time_                 = 0.0;
 
@@ -82,7 +85,8 @@ bool AstarPlanner::isNodeValid(const Node& n) {
   }
   if (isNodeInTheNeighborhood(n.key, start_.key, clearing_dist_)) {  // unknown
     return true;
-  } else if (planning_octree_->search(n.key) == NULL || planning_octree_->isNodeOccupied(planning_octree_->search(n.key))) {  // occupied
+    /* } else if (planning_octree_->search(n.key) == NULL || planning_octree_->isNodeOccupied(planning_octree_->search(n.key))) {  // occupied */
+  } else if (planning_octree_->search(n.key) == NULL && planning_octree_->isNodeOccupied(planning_octree_->search(n.key))) {  // occupied
     return false;
   }
   /* else if (planning_octree_->search(n.key) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(n.key))) { */
@@ -97,9 +101,10 @@ bool AstarPlanner::isNodeValid(const Node& n) {
 bool AstarPlanner::checkValidityWithNeighborhood(const Node& n) {
   if (isNodeInTheNeighborhood(n.key, start_.key, clearing_dist_)) {  // unknown
     return true;
-  } else if (planning_octree_->search(n.key) == NULL) {
-    return false;
   }
+  /* else if (planning_octree_->search(n.key) == NULL) { */
+  /*   return false; */
+  /* } */
   return checkValidityWithKDTree(n);
 }
 //}
@@ -108,9 +113,10 @@ bool AstarPlanner::checkValidityWithNeighborhood(const Node& n) {
 bool AstarPlanner::checkValidityWithNeighborhood(const octomap::OcTreeKey& k) {
   if (isNodeInTheNeighborhood(k, start_.key, clearing_dist_)) {  // unknown
     return true;
-  } else if (planning_octree_->search(k) == NULL) {
-    return false;
   }
+  /* else if (planning_octree_->search(k) == NULL) { */
+  /*   return false; */
+  /* } */
   return checkValidityWithKDTree(k);
 }
 //}
@@ -118,7 +124,8 @@ bool AstarPlanner::checkValidityWithNeighborhood(const octomap::OcTreeKey& k) {
 /* checkValidityWitKDTree() //{ */
 bool AstarPlanner::checkValidityWithKDTree(const Node& n) {
   pcl::PointXYZ p = octomapKeyToPclPoint(n.key);
-  if (p.z < grid_params_.min_z || p.z > grid_params_.max_z || pcl_map_.getDistanceFromNearestPoint(p) < safe_dist_) {
+  if (p.z < grid_params_.min_z || p.z > grid_params_.max_z || pcl_map_.getDistanceFromNearestPoint(p) < safe_dist_ ||
+      pcl_map_.getDistanceFromNearestPoint(p) > max_obst_dist_) {
     return false;
   }
   return true;
@@ -128,7 +135,8 @@ bool AstarPlanner::checkValidityWithKDTree(const Node& n) {
 /* checkValidityWitKDTree() //{ */
 bool AstarPlanner::checkValidityWithKDTree(const octomap::OcTreeKey& k) {
   pcl::PointXYZ p = octomapKeyToPclPoint(k);
-  if (p.z < grid_params_.min_z || p.z > grid_params_.max_z || pcl_map_.getDistanceFromNearestPoint(p) < safe_dist_) {
+  if (p.z < grid_params_.min_z || p.z > grid_params_.max_z || pcl_map_.getDistanceFromNearestPoint(p) < safe_dist_ ||
+      pcl_map_.getDistanceFromNearestPoint(p) > max_obst_dist_) {
     return false;
   }
   return true;
@@ -151,13 +159,11 @@ Node AstarPlanner::getValidNodeInNeighborhood(const Node& goal) {
 
 /* findPath() //{ */
 
-std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(const octomap::point3d& start_point, const octomap::point3d& goal_point,
-                                                                      std::shared_ptr<octomap::OcTree> planning_octree, bool make_path_straight,
-                                                                      bool apply_postprocessing, double planning_bbx_size_h, double planning_bbx_size_v,
-                                                                      double postprocessing_safe_dist, int postprocessing_max_iterations,
-                                                                      bool postprocessing_horizontal_neighbors_only, double postprocessing_z_tolerance,
-                                                                      int shortening_window_size, double shortening_dist, bool apply_pruning, double pruning_dist, 
-                                                                      bool ignore_unknown_cells_near_start, double box_size_for_unknown_cells_replacement) {
+std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(
+    const octomap::point3d& start_point, const octomap::point3d& goal_point, std::shared_ptr<octomap::OcTree> planning_octree, bool make_path_straight,
+    bool apply_postprocessing, double planning_bbx_size_h, double planning_bbx_size_v, double postprocessing_safe_dist, int postprocessing_max_iterations,
+    bool postprocessing_horizontal_neighbors_only, double postprocessing_z_tolerance, int shortening_window_size, double shortening_dist, bool apply_pruning,
+    double pruning_dist, bool ignore_unknown_cells_near_start, double box_size_for_unknown_cells_replacement) {
 
   if (make_path_straight && apply_postprocessing) {
     ROS_WARN("[%s]: The path straightening cannot be applied together with the path postprocessing. ", ros::this_node::getName().c_str());
@@ -205,6 +211,8 @@ std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(const octo
     ROS_INFO("[%s]: Node %lu: [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), k, waypoints[k].x(), waypoints[k].y(), waypoints[k].z());
   }
 
+  /* bool direct_path_to_goal_found = (waypoints.back() - goal_point).norm() <= planning_octree_->getResolution();  // TODO: return this bool from
+   * getNodePathFunction */
   bool direct_path_to_goal_found = false;  // TODO: return this bool from getNodePathFunction
   return std::make_pair(waypoints, direct_path_to_goal_found);
 }
@@ -953,8 +961,9 @@ std::vector<octomap::point3d> AstarPlanner::pruneWaypoints(std::vector<octomap::
 
   std::vector<octomap::point3d> pruned_path;
   pruned_path.push_back(waypoint_path[0]);
-  for (size_t k = 1; k < waypoint_path.size()-1; k++) {
-    if (sqrt(pow(waypoint_path[k].x() - pruned_path.back().x(), 2) + pow(waypoint_path[k].y() - pruned_path.back().y(), 2) + pow(waypoint_path[k].z() - pruned_path.back().z(), 2)) > pruning_dist) { 
+  for (size_t k = 1; k < waypoint_path.size() - 1; k++) {
+    if (sqrt(pow(waypoint_path[k].x() - pruned_path.back().x(), 2) + pow(waypoint_path[k].y() - pruned_path.back().y(), 2) +
+             pow(waypoint_path[k].z() - pruned_path.back().z(), 2)) > pruning_dist) {
       pruned_path.push_back(waypoint_path[k]);
     }
   }
@@ -976,7 +985,7 @@ std::vector<octomap::point3d> AstarPlanner::getWaypointPathWithoutObsoletePoints
   std::vector<octomap::point3d> simplified_path;
   simplified_path.push_back(waypoint_path[0]);
   for (size_t k = 1; k < waypoint_path.size() - 1; k++) {
-    if (pointLineDist(waypoint_path[k-1], waypoint_path[k+1], waypoint_path[k]) > tolerance) { 
+    if (pointLineDist(waypoint_path[k - 1], waypoint_path[k + 1], waypoint_path[k]) > tolerance) {
       simplified_path.push_back(waypoint_path[k]);
     }
   }
@@ -992,8 +1001,8 @@ double AstarPlanner::pointLineDist(octomap::point3d lb, octomap::point3d le, oct
   // implemented based on https://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
   octomap::point3d v_line(le.x() - lb.x(), le.y() - lb.y(), le.z() - lb.z());
   octomap::point3d v_point(lb.x() - p.x(), lb.y() - p.y(), lb.z() - p.z());
-  double line_norm_sq = pow(v_line.x(), 2) + pow(v_line.y(), 2) + pow(v_line.z(), 2);
-  double point_norm_sq = pow(v_point.x(), 2) + pow(v_point.y(), 2) + pow(v_point.z(), 2);
+  double           line_norm_sq  = pow(v_line.x(), 2) + pow(v_line.y(), 2) + pow(v_line.z(), 2);
+  double           point_norm_sq = pow(v_point.x(), 2) + pow(v_point.y(), 2) + pow(v_point.z(), 2);
   double dist_sq = (line_norm_sq * point_norm_sq - pow(v_line.x() * v_point.x() + v_line.y() * v_point.y() + v_line.z() * v_point.z(), 2)) / line_norm_sq;
   return sqrt(dist_sq);
 }

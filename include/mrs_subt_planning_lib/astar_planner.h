@@ -69,7 +69,7 @@ struct Node
 struct NodeCompare
 {
   bool operator()(const Node& lhs, const Node& rhs) {
-    return lhs.g_cost > rhs.g_cost;
+    return rhs.g_cost < lhs.g_cost;
   }
 };
 
@@ -148,7 +148,7 @@ public:
                   const bool break_at_timeout = false);  // for backward compatibility only
 
   void initialize(bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, double min_altitude,
-                  double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout = false);
+                  double max_altitude, double max_obst_dist, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout = false);
 
   std::vector<Node> getNodePath();  // for backward compatibility only
   std::vector<Node> getNodePath(const octomap::point3d& start_point, const octomap::point3d& goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
@@ -284,6 +284,7 @@ protected:
   double clearing_dist_;
   double min_altitude_;
   double max_altitude_;
+  double max_obst_dist_;
   bool   break_at_timeout_;
 
   // pruning
