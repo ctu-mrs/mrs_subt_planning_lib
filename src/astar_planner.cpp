@@ -38,12 +38,6 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
 
   initializeIdxsOfcellsForPruning();
   initialized_ = true;
-
-  ros::NodeHandle nh("~");
-  pub_debug         = nh.advertise<visualization_msgs::MarkerArray>("debug_points", 1);
-  pub_open_list     = nh.advertise<visualization_msgs::Marker>("open_list", 1);
-  pub_closed_list   = nh.advertise<visualization_msgs::Marker>("closed_list", 1);
-  pub_occupied_pcl_ = nh.advertise<visualization_msgs::Marker>("occupied_pcl", 1);
 }
 //}
 
@@ -64,11 +58,6 @@ void AstarPlanner::initialize(bool enable_planning_to_unreachable_goal, double p
 
   initializeIdxsOfcellsForPruning();
   initialized_ = true;
-
-  /* ros::NodeHandle nh("~"); */
-  /* pub_debug       = nh.advertise<visualization_msgs::MarkerArray>("debug_points", 1); */
-  /* pub_open_list   = nh.advertise<visualization_msgs::Marker>("open_list", 1); */
-  /* pub_closed_list = nh.advertise<visualization_msgs::Marker>("closed_list", 1); */
 }
 //}
 
@@ -151,21 +140,18 @@ Node AstarPlanner::getValidNodeInNeighborhood(const Node& goal) {
 
 /* findPath() //{ */
 
-std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(const octomap::point3d& start_point, const octomap::point3d& goal_point,
-                                                                      std::shared_ptr<octomap::OcTree> planning_octree, bool make_path_straight,
-                                                                      bool apply_postprocessing, double planning_bbx_size_h, double planning_bbx_size_v,
-                                                                      double postprocessing_safe_dist, int postprocessing_max_iterations,
-                                                                      bool postprocessing_horizontal_neighbors_only, double postprocessing_z_tolerance,
-                                                                      int shortening_window_size, double shortening_dist, bool apply_pruning, double pruning_dist, 
-                                                                      bool ignore_unknown_cells_near_start, double box_size_for_unknown_cells_replacement) {
+std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(
+    const octomap::point3d& start_point, const octomap::point3d& goal_point, std::shared_ptr<octomap::OcTree> planning_octree, bool make_path_straight,
+    bool apply_postprocessing, double planning_bbx_size_h, double planning_bbx_size_v, double postprocessing_safe_dist, int postprocessing_max_iterations,
+    bool postprocessing_horizontal_neighbors_only, double postprocessing_z_tolerance, int shortening_window_size, double shortening_dist, bool apply_pruning,
+    double pruning_dist, bool ignore_unknown_cells_near_start, double box_size_for_unknown_cells_replacement) {
 
   if (make_path_straight && apply_postprocessing) {
     ROS_WARN("[%s]: The path straightening cannot be applied together with the path postprocessing. ", ros::this_node::getName().c_str());
   }
 
-  std::vector<double>              bbx            = {planning_bbx_size_h, planning_bbx_size_h, planning_bbx_size_v};
-  ros::Time                        start          = ros::Time::now();
-  std::shared_ptr<octomap::OcTree> resampled_tree = createPlanningTree(planning_octree, start_point, resolution_, bbx);
+  std::vector<double> bbx   = {planning_bbx_size_h, planning_bbx_size_h, planning_bbx_size_v};
+  ros::Time           start = ros::Time::now();
   ROS_INFO("[%s]: Tree resampling took %.2f s.", ros::this_node::getName().c_str(), (ros::Time::now() - start).toSec());
   std::vector<Node> node_path = getNodePath(start_point, goal_point, planning_octree, ignore_unknown_cells_near_start, box_size_for_unknown_cells_replacement);
   std::vector<octomap::point3d>   waypoints;
@@ -359,7 +345,6 @@ std::vector<Node> AstarPlanner::getNodePath() {
   ROS_INFO_COND(debug_, "[AstarPlanner] Start octomap to pointcloud");
   std::vector<pcl::PointXYZ> pcl_points =
       octomapToPointcloud();  // TODO: replace by detection of maxmin x, maxmin y and maxmin z, for reasonable setting of are
-  publishOccupiedPcl(pcl_points);
 
   if (pcl_points.size() > 0) {
     ROS_INFO_COND(verbose_, "[AstarPlanner]: Start conversion");
@@ -492,6 +477,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
   batch_visualizer_->clearVisuals();
   batch_visualizer_->clearBuffers();
+  visualizeOccupiedPoints(pcl_points);
   visualizeGoal(planning_octree_->keyToCoord(goal_.key));
   ROS_INFO("[AstarPlanner debug]: Open set size %lu.", open_set.size());
   visualizeExpansions(open_set, closed_list, *planning_octree_);
@@ -953,8 +939,9 @@ std::vector<octomap::point3d> AstarPlanner::pruneWaypoints(std::vector<octomap::
 
   std::vector<octomap::point3d> pruned_path;
   pruned_path.push_back(waypoint_path[0]);
-  for (size_t k = 1; k < waypoint_path.size()-1; k++) {
-    if (sqrt(pow(waypoint_path[k].x() - pruned_path.back().x(), 2) + pow(waypoint_path[k].y() - pruned_path.back().y(), 2) + pow(waypoint_path[k].z() - pruned_path.back().z(), 2)) > pruning_dist) { 
+  for (size_t k = 1; k < waypoint_path.size() - 1; k++) {
+    if (sqrt(pow(waypoint_path[k].x() - pruned_path.back().x(), 2) + pow(waypoint_path[k].y() - pruned_path.back().y(), 2) +
+             pow(waypoint_path[k].z() - pruned_path.back().z(), 2)) > pruning_dist) {
       pruned_path.push_back(waypoint_path[k]);
     }
   }
@@ -976,7 +963,7 @@ std::vector<octomap::point3d> AstarPlanner::getWaypointPathWithoutObsoletePoints
   std::vector<octomap::point3d> simplified_path;
   simplified_path.push_back(waypoint_path[0]);
   for (size_t k = 1; k < waypoint_path.size() - 1; k++) {
-    if (pointLineDist(waypoint_path[k-1], waypoint_path[k+1], waypoint_path[k]) > tolerance) { 
+    if (pointLineDist(waypoint_path[k - 1], waypoint_path[k + 1], waypoint_path[k]) > tolerance) {
       simplified_path.push_back(waypoint_path[k]);
     }
   }
@@ -992,8 +979,8 @@ double AstarPlanner::pointLineDist(octomap::point3d lb, octomap::point3d le, oct
   // implemented based on https://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
   octomap::point3d v_line(le.x() - lb.x(), le.y() - lb.y(), le.z() - lb.z());
   octomap::point3d v_point(lb.x() - p.x(), lb.y() - p.y(), lb.z() - p.z());
-  double line_norm_sq = pow(v_line.x(), 2) + pow(v_line.y(), 2) + pow(v_line.z(), 2);
-  double point_norm_sq = pow(v_point.x(), 2) + pow(v_point.y(), 2) + pow(v_point.z(), 2);
+  double           line_norm_sq  = pow(v_line.x(), 2) + pow(v_line.y(), 2) + pow(v_line.z(), 2);
+  double           point_norm_sq = pow(v_point.x(), 2) + pow(v_point.y(), 2) + pow(v_point.z(), 2);
   double dist_sq = (line_norm_sq * point_norm_sq - pow(v_line.x() * v_point.x() + v_line.y() * v_point.y() + v_line.z() * v_point.z(), 2)) / line_norm_sq;
   return sqrt(dist_sq);
 }
@@ -1212,20 +1199,42 @@ std::vector<pcl::PointXYZ> AstarPlanner::octomapToPointcloud(const std::vector<i
 /* octomapToPointcloud() //{ */
 std::vector<pcl::PointXYZ> AstarPlanner::octomapToPointcloud() {
   std::vector<pcl::PointXYZ> output_pcl;
-  for (octomap::OcTree::iterator it = planning_octree_->begin(), end = planning_octree_->end(); it != end; ++it) {
-    if (it.getDepth() != planning_octree_->getTreeDepth())
-      continue;
+
+  for (octomap::OcTree::leaf_iterator it = planning_octree_->begin_leafs(), end = planning_octree_->end_leafs(); it != end; ++it) {
 
     if (planning_octree_->search(it.getKey()) == NULL ||
         (planning_octree_->search(it.getKey()) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(it.getKey())))) {
-      pcl::PointXYZ    point;
-      octomap::point3d octomap_point = planning_octree_->keyToCoord(it.getKey());
-      point.x                        = octomap_point.x();
-      point.y                        = octomap_point.y();
-      point.z                        = octomap_point.z();
-      output_pcl.push_back(point);
+
+      if (it.getDepth() == planning_octree_->getTreeDepth()) {
+
+        pcl::PointXYZ    point;
+        octomap::point3d octomap_point = planning_octree_->keyToCoord(it.getKey());
+        point.x                        = octomap_point.x();
+        point.y                        = octomap_point.y();
+        point.z                        = octomap_point.z();
+        output_pcl.push_back(point);
+
+      } else {
+
+        // solution for leafs with non-maximum depth
+        double           sd            = it.getSize() / 2.0;
+        double           ed            = it.getSize() / 2.0;
+        octomap::point3d octomap_point = planning_octree_->keyToCoord(it.getKey());
+        for (double x = -sd; x < ed; x += resolution_) {
+          for (double y = -sd; y < ed; y += resolution_) {
+            for (double z = -sd; z < ed; z += resolution_) {
+              pcl::PointXYZ point;
+              point.x = octomap_point.x() + x;
+              point.y = octomap_point.y() + y;
+              point.z = octomap_point.z() + z;
+              output_pcl.push_back(point);
+            }
+          }
+        }
+      }
     }
   }
+
   ROS_INFO_COND(debug_, "[AstarPlanner]: octomap to pointcloud end");
   return output_pcl;
 }
@@ -2286,39 +2295,12 @@ void AstarPlanner::setPlanningOctree(std::shared_ptr<octomap::OcTree> new_map) {
 }
 //}
 
-/* publishOccupiedPcl() //{ */
-void AstarPlanner::publishOccupiedPcl(std::vector<pcl::PointXYZ>& pcl_points) {
+/* visualizeOccupiedPoints() //{ */
+void AstarPlanner::visualizeOccupiedPoints(std::vector<pcl::PointXYZ>& pcl_points) {
 
-  if (pub_occupied_pcl_.getNumSubscribers() < 1) {
-    return;
-  }
-
-  visualization_msgs::Marker::Ptr msg = boost::make_shared<visualization_msgs::Marker>();
-  ROS_INFO("[%s]: Publish occupied pcl start", ros::this_node::getName().c_str());
-  msg->header.frame_id = "uav1/aloam_origin";
-  msg->header.stamp    = ros::Time::now();
-
-  msg->action  = visualization_msgs::Marker::ADD;
-  msg->type    = visualization_msgs::Marker::SPHERE_LIST;
-  msg->scale.x = msg->scale.y = msg->scale.z = 0.10;
-  msg->color.r                               = 0;
-  msg->color.g                               = 1;
-  msg->color.b                               = 0;
-  msg->color.a                               = 1;
-  msg->pose.orientation.w                    = 1;
-  msg->id                                    = 1;
-  msg->points.resize(pcl_points.size());
-  for (int k = 0; k < pcl_points.size(); k++) {
-    msg->points[k].x = pcl_points[k].x;
-    msg->points[k].y = pcl_points[k].y;
-    msg->points[k].z = pcl_points[k].z;
-  }
-
-  try {
-    pub_occupied_pcl_.publish(msg);
-  }
-  catch (...) {
-    ROS_ERROR("exception caught during publishing topic '%s'", pub_occupied_pcl_.getTopic().c_str());
+  for (auto& point : pcl_points) {
+    Eigen::Vector3d p(point.x, point.y, point.z);
+    batch_visualizer_->addPoint(p, 0.2, 0.2, 1.0, 0.3);
   }
 }
 //}
@@ -2357,92 +2339,3 @@ void AstarPlanner::visualizeGoal(const octomap::point3d& goal) {
 }
 
 //}
-
-/* touchNode() //{ */
-
-octomap::OcTreeNode* AstarPlanner::touchNode(std::shared_ptr<octomap::OcTree>& octree, const octomap::OcTreeKey& key, unsigned int target_depth) {
-
-  // initialize the tree by insertin a first node
-  octomap::OcTreeKey temp_key = octree->coordToKey(0, 0, 0, octree->getTreeDepth());
-  octree->setNodeValue(temp_key, 0.0);
-
-  return touchNodeRecurs(octree, octree->getRoot(), key, 0, target_depth);
-}
-
-//}
-
-/* touchNodeRecurs() //{ */
-
-octomap::OcTreeNode* AstarPlanner::touchNodeRecurs(std::shared_ptr<octomap::OcTree>& octree, octomap::OcTreeNode* node, const octomap::OcTreeKey& key,
-                                                   unsigned int depth, unsigned int max_depth) {
-
-  if (depth < octree->getTreeDepth() && (max_depth == 0 || depth < max_depth)) {
-
-    unsigned int pos = octomap::computeChildIdx(key, int(octree->getTreeDepth() - depth - 1));
-
-    if (!octree->nodeChildExists(node, pos)) {
-
-      octree->createNodeChild(node, pos);
-    }
-
-    return touchNodeRecurs(octree, octree->getNodeChild(node, pos), key, depth + 1, max_depth);
-
-  } else {
-    return node;
-  }
-}
-
-//}
-
-/* createPlanningTree() //{ */
-
-std::shared_ptr<octomap::OcTree> AstarPlanner::createPlanningTree(std::shared_ptr<octomap::OcTree> tree, const octomap::point3d& start, double resolution,
-                                                                  std::vector<double> bbx) {
-
-  /* resample the incoming map to the desired resolution */
-
-  std::shared_ptr<octomap::OcTree> resampled_tree = std::make_shared<octomap::OcTree>(resolution);
-  resampled_tree->setOccupancyThres(tree->getOccupancyThres());
-  resampled_tree->setProbHit(tree->getProbHit());
-  resampled_tree->setProbMiss(tree->getProbMiss());
-  resampled_tree->setClampingThresMax(tree->getClampingThresMax());
-  resampled_tree->setClampingThresMin(tree->getClampingThresMin());
-
-  octomap::OcTreeKey key = resampled_tree->coordToKey(0, 0, 0, resampled_tree->getTreeDepth());
-  resampled_tree->setNodeValue(key, 0.0);
-
-  octomap::point3d p_min(start.x() - bbx[0], start.y() - bbx[1], start.z() - bbx[2]);
-  octomap::point3d p_max(start.x() + bbx[0], start.y() + bbx[1], start.z() + bbx[2]);
-
-  for (octomap::OcTree::leaf_bbx_iterator it = tree->begin_leafs_bbx(p_min, p_max, tree->getTreeDepth()), end = tree->end_leafs_bbx(); it != end; ++it) {
-
-    auto orig_key = it.getKey();
-
-    const unsigned int old_depth = it.getDepth();
-    const unsigned int new_depth = old_depth;
-
-    auto new_key = resampled_tree->coordToKey(it.getX(), it.getY(), it.getZ());
-
-    octomap::OcTreeNode* new_node = touchNode(resampled_tree, new_key, new_depth);
-
-    if (tree->isNodeOccupied(*it)) {
-      new_node->setLogOdds(1.0);
-    } else {
-      new_node->setLogOdds(-1.0);
-    }
-  }
-
-  resampled_tree->expand();
-
-  /* std::shared_ptr<octomap::OcTree> binary_tree = std::make_shared<octomap::OcTree>(resolution); */
-
-  /* for (auto it = resampled_tree->begin(); it != resampled_tree->end(); it++) { */
-  /*   if (edf.getDistance(it.getCoordinate()) <= safe_obstacle_distance) { */
-  /*     binary_tree->setNodeValue(it.getCoordinate(), TreeValue::OCCUPIED);  // free and safe */
-  /*   } else { */
-  /*     binary_tree->setNodeValue(it.getCoordinate(), TreeValue::FREE);  // free and safe */
-  /*   } */
-  /* } */
-
-  return resampled_tree;
-}
