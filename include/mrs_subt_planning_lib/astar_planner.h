@@ -147,8 +147,9 @@ public:
                   double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer,
                   const bool break_at_timeout = false);  // for backward compatibility only
 
-  void initialize(bool enable_planning_to_unreachable_goal, double planning_timeout_, double safe_dist, double clearing_dist, double min_altitude,
-                  double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout = false);
+  void initialize(bool enable_planning_to_unreachable_goal, double planning_timeout_, double postprocessing_timeout_, double safe_dist, double clearing_dist,
+                  double min_altitude, double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer,
+                  const bool break_at_timeout = false);
 
   std::vector<Node> getNodePath();  // for backward compatibility only
   std::vector<Node> getNodePath(const octomap::point3d& start_point, const octomap::point3d& goal_point, std::shared_ptr<octomap::OcTree> planning_octree,
@@ -160,7 +161,7 @@ public:
   std::vector<octomap::point3d>   getWaypointPath(const std::vector<octomap::OcTreeKey>& key_path);
   std::vector<octomap::point3d>   getLocalPath(const std::vector<Node>& node_path);
   std::vector<octomap::OcTreeKey> getSafePath(const std::vector<octomap::OcTreeKey>& key_path, double safe_dist, int max_iteration, double z_diff_tolerance,
-                                              bool fix_goal_point, bool horizontal_neighbors_only);
+                                              bool fix_goal_point, bool horizontal_neighbors_only, double timeout);
   std::vector<octomap::point3d>   getStraightenWaypointPath(std::vector<Node>& node_path, double dist_step);
   std::vector<octomap::OcTreeKey> getFilteredPlan(const std::vector<octomap::OcTreeKey>& original_path, int size_of_window, double enabled_filtering_dist);
 
@@ -179,9 +180,9 @@ public:
                                                           std::shared_ptr<octomap::OcTree> planning_octree, bool make_path_straight, bool apply_postprocessing,
                                                           double planning_bbx_size_h, double planning_bbx_size_v, double postprocessing_safe_dist,
                                                           int postprocessing_max_iterations, bool postprocessing_horizontal_neighbors_only,
-                                                          double postprocessing_z_tolerance, int shortening_window_size, double shortening_dist,
-                                                          bool apply_pruning, double pruning_dist, bool ignore_unknown_cells_near_start = false,
-                                                          double box_size_for_unknown_cells_replacement = 2.0);
+                                                          double postprocessing_z_tolerance, double postprocessing_path_length, int shortening_window_size,
+                                                          double shortening_dist, bool apply_pruning, double pruning_dist,
+                                                          bool ignore_unknown_cells_near_start = false, double box_size_for_unknown_cells_replacement = 2.0);
 
   octomap::OcTreeNode* touchNode(std::shared_ptr<octomap::OcTree>& octree, const octomap::OcTreeKey& key, unsigned int target_depth = 0);
 
@@ -268,6 +269,7 @@ protected:
   // params
   bool   use_neighborhood_6_;
   double planning_timeout_;
+  double postprocessing_timeout_;
   double resolution_;
   bool   enable_planning_to_unreachable_goal_;
   bool   debug_;

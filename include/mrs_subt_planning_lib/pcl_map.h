@@ -63,6 +63,7 @@ public:
 
   pcl::PointCloud<pcl::PointXYZ>::Ptr getPCLCloud();
   void                                initKDTreeSearch(pcl::PointCloud<pcl::PointXYZ>::Ptr points);
+  void                                initKDTreeSearch();
   double                              getDistanceFromNearestPoint(pcl::PointXYZ point);
   void                                insertPoint(pcl::PointXYZ point);
   void                                initCloud();
@@ -71,7 +72,8 @@ public:
 
   static pcl::PointCloud<pcl::PointXYZ>::Ptr pclVectorToPointcloud(const std::vector<pcl::PointXYZ> &points);
 
-  static pcl::PointCloud<pcl::PointXYZ>::Ptr octomapToPointcloud(std::shared_ptr<octomap::OcTree> input_octree, std::array<octomap::point3d, 2> map_limits, bool ignore_unknown_cells);
+  static pcl::PointCloud<pcl::PointXYZ>::Ptr octomapToPointcloud(std::shared_ptr<octomap::OcTree> input_octree, std::array<octomap::point3d, 2> map_limits,
+                                                                 bool ignore_unknown_cells);
 
 private:
   pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr octree;

@@ -121,6 +121,18 @@ void PCLMap::initKDTreeSearch(pcl::PointCloud<pcl::PointXYZ>::Ptr points) {
   ROS_INFO("[%s]: init kd tree search end", ros::this_node::getName().c_str());
 }
 
+void PCLMap::initKDTreeSearch() {
+
+  if (pcl_cloud->size() > 0) {
+    /* ROS_INFO("[%s]: initkdtree, point size = %lu", ros::this_node::getName().c_str(), points->size()); */
+    kdtree->setInputCloud(pcl_cloud);
+    /* ROS_INFO("[%s]: kdtree function end", ros::this_node::getName().c_str()); */
+    kd_tree_initialized = true;
+  }
+  ROS_INFO("[%s]: init kd tree search end", ros::this_node::getName().c_str());
+
+}
+
 double PCLMap::getDistanceFromNearestPoint(pcl::PointXYZ point) {
   std::vector<int>   indices(1);
   std::vector<float> sqr_distances(1);

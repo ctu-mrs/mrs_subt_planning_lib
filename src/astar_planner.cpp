@@ -27,7 +27,8 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
   resolution_   = planning_octree_->getResolution();
   ROS_INFO("[AstarPlanner]: Astarplanner with resolution %.2f initialized", resolution_);
   enable_planning_to_unreachable_goal_ = enable_planning_to_unreachable_goal;
-  planning_timeout_                    = planning_timeout - 0.2;
+  postprocessing_timeout_              = 0.2;
+  planning_timeout_                    = planning_timeout - postprocessing_timeout_;
   debug_                               = debug;
   safe_dist_                           = safe_dist;
   safe_dist_prev_                      = safe_dist_;
@@ -42,10 +43,12 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
 //}
 
 /* initialize() //{ */
-void AstarPlanner::initialize(bool enable_planning_to_unreachable_goal, double planning_timeout, double safe_dist, double clearing_dist, double min_altitude,
-                              double max_altitude, bool debug, std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout) {
+void AstarPlanner::initialize(bool enable_planning_to_unreachable_goal, double planning_timeout, double postprocessing_timeout, double safe_dist,
+                              double clearing_dist, double min_altitude, double max_altitude, bool debug,
+                              std::shared_ptr<mrs_lib::BatchVisualizer> batch_visualizer, const bool break_at_timeout) {
   enable_planning_to_unreachable_goal_ = enable_planning_to_unreachable_goal;
-  planning_timeout_                    = planning_timeout - 0.2;
+  planning_timeout_                    = planning_timeout;
+  postprocessing_timeout_              = postprocessing_timeout;
   debug_                               = debug;
   safe_dist_                           = safe_dist;
   safe_dist_prev_                      = safe_dist_;
@@ -143,12 +146,13 @@ Node AstarPlanner::getValidNodeInNeighborhood(const Node& goal) {
 std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(
     const octomap::point3d& start_point, const octomap::point3d& goal_point, std::shared_ptr<octomap::OcTree> planning_octree, bool make_path_straight,
     bool apply_postprocessing, double planning_bbx_size_h, double planning_bbx_size_v, double postprocessing_safe_dist, int postprocessing_max_iterations,
-    bool postprocessing_horizontal_neighbors_only, double postprocessing_z_tolerance, int shortening_window_size, double shortening_dist, bool apply_pruning,
-    double pruning_dist, bool ignore_unknown_cells_near_start, double box_size_for_unknown_cells_replacement) {
+    bool postprocessing_horizontal_neighbors_only, double postprocessing_z_tolerance, double postprocessing_path_length, int shortening_window_size,
+    double shortening_dist, bool apply_pruning, double pruning_dist, bool ignore_unknown_cells_near_start, double box_size_for_unknown_cells_replacement) {
 
   if (make_path_straight && apply_postprocessing) {
     ROS_WARN("[%s]: The path straightening cannot be applied together with the path postprocessing. ", ros::this_node::getName().c_str());
   }
+  ROS_INFO("[%s]: Findpath: Planning from [%.2f, %.2f, %.2f] to [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), start_point.x(), start_point.y(), start_point.z(), goal_point.x(), goal_point.y(), goal_point.z());
 
   std::vector<double> bbx   = {planning_bbx_size_h, planning_bbx_size_h, planning_bbx_size_v};
   ros::Time           start = ros::Time::now();
@@ -159,13 +163,23 @@ std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(
 
   start = ros::Time::now();
   if (apply_postprocessing) {
-    waypoints_keys = getSafePath(getKeyPath(node_path), postprocessing_safe_dist, postprocessing_max_iterations, postprocessing_z_tolerance, true,
-                                 postprocessing_horizontal_neighbors_only);
+
+    int n_waypoints_max;
+    if (postprocessing_path_length > 0) { 
+      n_waypoints_max = static_cast<int>(ceil(postprocessing_path_length / resolution_));
+    } else { 
+      n_waypoints_max = node_path.size();
+    }
+
+    std::vector<Node> node_subpath =
+        std::vector<Node>(node_path.begin(), node_path.begin() + std::min(n_waypoints_max, static_cast<int>(node_path.size())));
+    waypoints_keys = getSafePath(getKeyPath(node_subpath), postprocessing_safe_dist, postprocessing_max_iterations, postprocessing_z_tolerance, true,
+                                 postprocessing_horizontal_neighbors_only, postprocessing_timeout_);
     std::vector<octomap::OcTreeKey> safe_filtered_key_plan =
         getFilteredPlan(waypoints_keys, shortening_window_size, shortening_dist);  // FIXME: check whether there was no reason to comment this out
     waypoints = getWaypointPath(safe_filtered_key_plan);
 
-    ROS_INFO("[%s]: Path postprocessing took %.2f s.", ros::this_node::getName().c_str(), (ros::Time::now() - start).toSec());
+    ROS_INFO("[%s]: Path postprocessing took %.2f ms.", ros::this_node::getName().c_str(), (ros::Time::now() - start).toSec() * 1000);
 
   } else if (make_path_straight) {
     waypoints = getStraightenWaypointPath(node_path, 0.2);
@@ -443,22 +457,8 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
       double new_cost = current.f_cost + nodeDistance(current, *it);  // nodeDistance can be replaced with 1.0 for 6 neighborhood
 
-      /* node_removed    = open_list.conditional_remove(*it, new_cost); */
-      /* if (node_removed) {          // node present in open list */
-      /*   if (node_removed == -1) {  // node present with better cost */
-      /*     continue; */
-      /*   } */
-      /* } else if (closed_list.find(*it) != closed_list.end()) { */
-      /*   if (cost_so_far[*it] <= new_cost) { */
-      /*     continue; */
-      /*   } */
-      /*   closed_list.erase(*it); */
-      /* } */
-
-
-      it->f_cost = new_cost;
-      it->h_cost = astar_admissibility_ * euclideanCost(*it);
-      /* it->g_cost = it->f_cost + it->h_cost; */
+      it->f_cost     = new_cost;
+      it->h_cost     = astar_admissibility_ * euclideanCost(*it);
       it->g_cost     = it->f_cost + it->h_cost;
       it->parent_key = current.key;
       if (it->h_cost < nearest.h_cost) {
@@ -468,8 +468,6 @@ std::vector<Node> AstarPlanner::getNodePath() {
       open_set.insert(*it);
       open_list.push(*it);
     }
-    /* closed_list.insert(current); */
-    /* cost_so_far[current] = current.f_cost; */
 
     loop_counter++;
   }
@@ -485,22 +483,24 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
   // path reconstruction
   if (!isNodeGoal(current)) {
+    ROS_WARN("[AstarPlanner]: Path not found, goal unreachable.");
 
     if (break_at_timeout_) {
       return std::vector<Node>();
     }
 
-    ROS_WARN("[AstarPlanner]: Path not found, goal unreachable.");
     octomap::point3d nearest_coords = planning_octree_->keyToCoord(nearest.key);
     octomap::point3d goal_coords    = planning_octree_->keyToCoord(goal_.key);
     ROS_INFO_COND(verbose_,
                   "[AstarPlanner]: Path to nearest node to goal [%.2f, %.2f, %.2f] found. Replacing original goal [%.2f, %.2f, %.2f] by nearest node.",
                   nearest_coords.x(), nearest_coords.y(), nearest_coords.z(), goal_coords.x(), goal_coords.y(), goal_coords.z());
+
     if (!areKeysEqual(current.key, nearest.key)) {
       ROS_INFO_COND(debug_, "[AstarPlanner]: current and nearest are not equal");
       current = nearest;
     }
   }
+
   last_found_goal_ = current;
   ROS_INFO_COND(debug_, "[AstarPlanner]: start path reconstruction");
   current.pose = planning_octree_->keyToCoord(current.key);
@@ -508,6 +508,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
   int counter = 0;
   ROS_INFO_COND(debug_, "[AstarPlanner]: path reconstruction %d, waypoint key = [%d, %d, %d]", counter, waypoints[counter].key.k[0],
                 waypoints[counter].key.k[1], waypoints[counter].key.k[2]);
+
   while (abs(waypoints[counter].f_cost) > 1e-5) {
     waypoints.push_back(parent_list[waypoints[counter]]);
     counter++;
@@ -516,6 +517,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
                   waypoints[counter].key.k[1], waypoints[counter].key.k[2]);
     /* sleep(0.1); */
   }
+
   // reverse the path from end to beginning
   ROS_INFO_COND(debug_, "[AstarPlanner]: reversing waypoints");
   std::reverse(waypoints.begin(), waypoints.end());
@@ -645,8 +647,11 @@ octomap::point3d AstarPlanner::getLastFoundGoal() {
 
 /* getSafePath() //{ */
 std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octomap::OcTreeKey>& key_path, double safe_dist, int max_iteration,
-                                                          double z_diff_tolerance, bool fix_goal_point, bool horizontal_neighbors_only) {
+                                                          double z_diff_tolerance, bool fix_goal_point, bool horizontal_neighbors_only, double timeout) {
   /* bool visualization_pause_disabled = false; */
+  ros::Time start_time                       = ros::Time::now();
+  double    timeout_percentage_for_filtering = 0.25;
+
   ROS_INFO_COND(debug_, "[AstarPlanner]: GetSafePath start");
   std::vector<octomap::OcTreeKey> local_path_keys;
   local_path_keys = key_path;
@@ -657,9 +662,8 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
     return local_path_keys;
   }
 
-  ros::Time start_time = ros::Time::now();
   // TODO: generate pointcloud for reasonable surrounding
-  std::vector<int> map_limits = getMapLimits(key_path, 0, key_path.size(), ceil(4.0 / resolution_), ceil(4.0 / resolution_));
+  std::vector<int> map_limits = getMapLimits(key_path, 0, key_path.size(), ceil(max_iteration * sqrt(2)), ceil(max_iteration * sqrt(2)));
   ROS_INFO_COND(debug_, "[AstarPlanner]: octomap to pointcloud start");
   std::vector<pcl::PointXYZ> pcl_points =
       octomapToPointcloud(map_limits);  // TODO: replace by detection of maxmin x, maxmin y and maxmin z, for reasonable setting of area
@@ -676,23 +680,35 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
   } else {
     return local_path_keys;
   }
+
   bool has_changed                    = false;
   bool is_current_key_already_in_plan = false;
   // initialize vector of keys
   /* std::vector<octomap::OcTreeKey> added_waypoints; */
   /* octomap::OcTreeKey              last_waypoint; */
   ROS_INFO_COND(debug_, "[AstarPlanner]: local_path_keys initialized");
+  ros::Duration last_iter_duration = ros::Duration(0.0);
   for (int it = 0; it < max_iteration; it++) {
+
+    if ((1 - timeout_percentage_for_filtering) * timeout - (ros::Time::now() - start_time).toSec() < last_iter_duration.toSec()) {
+      ROS_INFO("[AstarPlanner]: Path postprocessing timeout reached at iteration %d", it);
+      break;
+    }
+
+    ros::Time iter_start = ros::Time::now();
+
     ROS_INFO_COND(debug_, "[AstarPlanner]: Start iteration %d", it);
     /* visualization_pause_disabled = false; */
     std::vector<octomap::OcTreeKey> local_path_keys_next;
     local_path_keys_next.clear();
     local_path_keys_next.push_back(local_path_keys[0]);
     has_changed = false;
+
     for (uint k = 1; k < local_path_keys.size(); k++) {
       ROS_INFO_COND(debug_, "[AstarPlanner]: Local path key %d: [%d, %d, %d]", k, local_path_keys[k].k[0], local_path_keys[k].k[1], local_path_keys[k].k[2]);
       /* last_waypoint                  = local_path_keys_next.back(); */
       is_current_key_already_in_plan = false;
+
       for (int j = local_path_keys_next.size() - 1; j > fmax(0, local_path_keys_next.size() - ceil(1.0 / resolution_)); j--) {  // detection of similar nodes
         if (areKeysEqual(local_path_keys_next[j], local_path_keys[k])) {
           is_current_key_already_in_plan = true;
@@ -707,6 +723,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
 
       // node in safe distance from obstacles:
       if (pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(local_path_keys[k])) > safe_dist) {
+
         if (areKeysEqual(local_path_keys_next.back(), local_path_keys[k])) {
           has_changed = true;
           ROS_INFO_COND(debug_, "[AstarPlanner]: Distance is safe and previous node is equal to current node. Nothing to add.");
@@ -793,12 +810,15 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
       ROS_INFO_COND(debug_, "[AstarPlanner]: Safe path key %02d: [%d, %d, %d] ", i, local_path_keys[i].k[0], local_path_keys[i].k[1], local_path_keys[i].k[2]);
     }
     ROS_WARN_COND(debug_, "[AstarPlanner]: ------------------------------------------------------------------------");
+    last_iter_duration = (ros::Time::now() - iter_start);
   }
-  end_time        = ros::Time::now();
+
+  ROS_WARN_COND(debug_, "Get safe path took %.2f ms", (ros::Time::now() - start_time).toSec() * 1000.0);
+  start_time      = ros::Time::now();
   local_path_keys = getFilteredNeighborhoodPlan(local_path_keys);
   local_path_keys = getStraightenKeyPath(local_path_keys);
   local_path_keys = getZzFilteredPlan(local_path_keys, z_diff_tolerance);
-  ROS_WARN_COND(debug_, "Get safe path took %.2f ms", (end_time - start_time).toSec() * 1000.0);
+  ROS_WARN_COND(debug_, "Safe path filtering took %.2f ms", (ros::Time::now() - start_time).toSec() * 1000.0);
 
   return local_path_keys;
 }
