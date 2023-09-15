@@ -1,109 +1,97 @@
 cmake_minimum_required(VERSION 3.5)
 project(mrs_subt_planning_lib)
 
-# Override CXX flags inherited from workspace, if precompiled PCL binaries from debian repos are used
-if (DEFINED ENV{PCL_CROSS_COMPILATION})
-  set(PCL_CROSS_COMPILATION $ENV{PCL_CROSS_COMPILATION})
-else()
-  set(PCL_CROSS_COMPILATION "false")
-endif()
-if(${PCL_CROSS_COMPILATION} STREQUAL "false")
-  message("Using precompiled PCL binaries from debian repos. Overriding catkin workspace CMAKE_CXX_FLAGS.")
-  set(CMAKE_CXX_FLAGS "-std=c++17")
-else()
-  message("Using custom-built PCL binaries. Inheriting all CMAKE_CXX_FLAGS from catkin workspace.")
-endif()
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+add_definitions(-O3)
 
-find_package(
-  Boost REQUIRED COMPONENTS
-  )
+find_package(Eigen3 REQUIRED)
+set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
+set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
+set(CATKIN_DEPENDENCIES
   cmake_modules
-  roscpp
   mrs_lib
-  std_msgs
+  octomap_msgs
+  octomap_ros
   pcl_conversions
   pcl_ros
-  octomap_ros
+  roscpp
+  sensor_msgs
+  std_msgs
+  tf
   )
 
-find_package(PCL REQUIRED COMPONENTS)
+set(LIBRARIES
+  MrsSubtPlanningLib_Planner
+  )
 
-###############################################
-## Declare ROS messages, services and actions ##
-################################################
+# disables anoying googletest warning
+set(CATKIN_ENABLE_TESTING FALSE)
 
-# add_message_files(DIRECTORY msg FILES
-#   )
+# disables anoying PCL warnings
+set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
 
-# ## Generate added messages and services with any dependencies listed here
-# generate_messages(DEPENDENCIES
-#   )
+find_package(PCL REQUIRED COMPONENTS
+  common
+  )
 
-###################################
-## catkin specific configuration ##
-###################################
+find_package(catkin REQUIRED COMPONENTS
+  ${CATKIN_DEPENDENCIES}
+  )
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp std_msgs sensor_msgs 
-  DEPENDS PCL
-  LIBRARIES MrsSubtPlanningLib 
+  CATKIN_DEPENDS ${CATKIN_DEPENDENCIES}
+  DEPENDS PCL Eigen
+  LIBRARIES ${LIBRARIES}
   )
 
-###########
-## Build ##
-###########
-
 include_directories(
-  INCLUDE_DIRS include
+  include
   ${PCL_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
-  ${Boost_INCLUDE_DIRS}
   )
 
 link_directories(
   ${PCL_LIBRARY_DIRS}
-)
+  )
 
 add_definitions(
   ${PCL_DEFINITIONS}
-)
+  )
 
-add_library(MrsSubtPlanningLib
+add_library(MrsSubtPlanningLib_Planner
   src/astar_planner.cpp
   src/pcl_map.cpp
   )
 
-add_dependencies(MrsSubtPlanningLib
+add_dependencies(MrsSubtPlanningLib_Planner
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(MrsSubtPlanningLib
+target_link_libraries(MrsSubtPlanningLib_Planner
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
+  ${Eigen_LIBRARIES}
   )
 
-#############
-## Install ##
-#############
+## --------------------------------------------------------------
+## |                           Install                          |
+## --------------------------------------------------------------
 
-# install(TARGETS MrsSubtPlanningLibrary
-#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-# )
+install(TARGETS ${LIBRARIES}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+  )
 
-# install(DIRECTORY include/${PROJECT_NAME}/
-#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-#   FILES_MATCHING PATTERN "*.h"
-#   )
+install(DIRECTORY include/mrs_subt_planning_lib/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  )
+
+install(DIRECTORY
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  FILES_MATCHING PATTERN "*.xml"
+  )
