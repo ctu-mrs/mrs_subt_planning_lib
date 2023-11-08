@@ -537,6 +537,7 @@ std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(const Node& start) 
 
   ros::Time         start_time = ros::Time::now();
   std::vector<Node> waypoints_filtered;
+
   if (!checkValidityWithKDTree(start)) {  // start is not feasible, try to find closest feasible point
     ROS_INFO("[%s]: gpnfn start node is not collision free ", ros::this_node::getName().c_str());
     double global_safe_dist = safe_dist_;
@@ -574,6 +575,7 @@ std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(const Node& start) 
 
       for (std::vector<Node>::iterator it = neighbors.begin(); it != neighbors.end(); ++it) {
 
+
         if (planning_octree_->search(it->key) == NULL || planning_octree_->isNodeOccupied(planning_octree_->search(it->key))) {
           continue;
         }
@@ -584,7 +586,7 @@ std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(const Node& start) 
 
         double obst_dist = pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(it->key));
 
-
+        it->pose = planning_octree_->keyToCoord(it->key);
         it->f_cost     = global_safe_dist - obst_dist;
         it->h_cost     = fmax(current.h_cost, it->f_cost);
         it->g_cost     = current.g_cost + it->f_cost;
