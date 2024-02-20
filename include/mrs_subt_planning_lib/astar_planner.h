@@ -182,7 +182,8 @@ public:
                                                           int postprocessing_max_iterations, bool postprocessing_horizontal_neighbors_only,
                                                           double postprocessing_z_tolerance, double postprocessing_path_length, int shortening_window_size,
                                                           double shortening_dist, bool apply_pruning, double pruning_dist,
-                                                          bool ignore_unknown_cells_near_start = false, double box_size_for_unknown_cells_replacement = 2.0);
+                                                          bool ignore_unknown_cells_near_start = false, double box_size_for_unknown_cells_replacement = 2.0,
+                                                          bool remove_obsolete_points = true, double obsolete_points_tolerance = 0.05);
 
   octomap::OcTreeNode* touchNode(std::shared_ptr<octomap::OcTree>& octree, const octomap::OcTreeKey& key, unsigned int target_depth = 0);
 
