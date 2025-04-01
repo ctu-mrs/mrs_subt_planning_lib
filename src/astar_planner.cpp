@@ -74,7 +74,7 @@ bool AstarPlanner::isNodeValid(const Node& n) {
   }
   if (isNodeInTheNeighborhood(n.key, start_.key, clearing_dist_)) {  // unknown
     return true;
-  } else if (planning_octree_->search(n.key) == NULL || planning_octree_->isNodeOccupied(planning_octree_->search(n.key))) {  // occupied
+  } else if (planning_octree_->search(n.key) == NULL && planning_octree_->isNodeOccupied(planning_octree_->search(n.key))) {  // occupied
     return false;
   }
   /* else if (planning_octree_->search(n.key) != NULL && planning_octree_->isNodeOccupied(planning_octree_->search(n.key))) { */
@@ -89,8 +89,8 @@ bool AstarPlanner::isNodeValid(const Node& n) {
 bool AstarPlanner::checkValidityWithNeighborhood(const Node& n) {
   if (isNodeInTheNeighborhood(n.key, start_.key, clearing_dist_)) {  // unknown
     return true;
-  } else if (planning_octree_->search(n.key) == NULL) {
-    return false;
+  /* } else if (planning_octree_->search(n.key) == NULL) { */
+  /*   return false; */
   }
   return checkValidityWithKDTree(n);
 }
@@ -100,8 +100,8 @@ bool AstarPlanner::checkValidityWithNeighborhood(const Node& n) {
 bool AstarPlanner::checkValidityWithNeighborhood(const octomap::OcTreeKey& k) {
   if (isNodeInTheNeighborhood(k, start_.key, clearing_dist_)) {  // unknown
     return true;
-  } else if (planning_octree_->search(k) == NULL) {
-    return false;
+  /* } else if (planning_octree_->search(k) == NULL) { */
+  /*   return false; */
   }
   return checkValidityWithKDTree(k);
 }
