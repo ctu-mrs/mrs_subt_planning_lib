@@ -1,11 +1,11 @@
 #ifndef __ASTAR_PLANNER_H__
 #define __ASTAR_PLANNER_H__
 
-#include <nav_msgs/Odometry.h>
-#include <ros/ros.h>
+#include <nav_msgs/msg/odometry.h>    // really used ?
+#include <rclcpp/rclcpp.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/batch_visualizer.h>
-#include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/msg/pose_array.h>
 #include <vector>
 #include <queue>
 #include <unordered_map>
@@ -165,7 +165,7 @@ public:
   std::vector<octomap::point3d>   getStraightenWaypointPath(std::vector<Node>& node_path, double dist_step);
   std::vector<octomap::OcTreeKey> getFilteredPlan(const std::vector<octomap::OcTreeKey>& original_path, int size_of_window, double enabled_filtering_dist);
 
-  std::pair<int, int> firstUnfeasibleNodeInPath(const std::vector<octomap::OcTreeKey>& key_waypoints, const std::vector<geometry_msgs::Point>& pose_array,
+  std::pair<int, int> firstUnfeasibleNodeInPath(const std::vector<octomap::OcTreeKey>& key_waypoints, const std::vector<geometry_msgs::msg::Point>& pose_array,
                                                 int n_points_forward, const octomap::point3d& current_pose, double safe_dist_for_replanning_,
                                                 double critical_dist_for_replanning);
   octomap::point3d    getLastFoundGoal();
@@ -255,7 +255,7 @@ protected:
   Node                                         getValidNodeInNeighborhood(const Node& goal);
   bool                                         checkValidityWithKDTree(const Node& n);
   bool                                         checkValidityWithKDTree(const octomap::OcTreeKey& k);
-  std::vector<octomap::OcTreeKey>              getKeyVectorFromCoordinates(const std::vector<geometry_msgs::Point>& pose_array);
+  std::vector<octomap::OcTreeKey>              getKeyVectorFromCoordinates(const std::vector<geometry_msgs::msg::Point>& pose_array);
   double                                       getDistFactorOfNeighbors(const octomap::OcTreeKey& c);
   void                                         replaceUnknownByFreeCells(const octomap::OcTreeKey& start_key, double box_size);
   std::vector<Node>                            getPathToNearestFeasibleNode(const Node& start);

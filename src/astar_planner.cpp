@@ -25,7 +25,7 @@ void AstarPlanner::initialize(octomap::point3d start_point, octomap::point3d goa
   min_altitude_ = min_altitude;
   max_altitude_ = max_altitude;
   resolution_   = planning_octree_->getResolution();
-  ROS_INFO("[AstarPlanner]: Astarplanner with resolution %.2f initialized", resolution_);
+  RCLCPP_INFO(this->get_logger(),"Astarplanner with resolution %.2f initialized", resolution_);
   enable_planning_to_unreachable_goal_ = enable_planning_to_unreachable_goal;
   postprocessing_timeout_              = 0.2;
   planning_timeout_                    = planning_timeout - postprocessing_timeout_;
@@ -151,19 +151,19 @@ std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(
     bool remove_obsolete_points, double obsolete_points_tolerance) {
 
   if (make_path_straight && apply_postprocessing) {
-    ROS_WARN("[%s]: The path straightening cannot be applied together with the path postprocessing. ", ros::this_node::getName().c_str());
+    RCLCPP_WARN(this->get_logger(),"The path straightening cannot be applied together with the path postprocessing. ");
   }
-  ROS_INFO("[%s]: Findpath: Planning from [%.2f, %.2f, %.2f] to [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), start_point.x(), start_point.y(),
+  RCLCPP_INFO(this->get_logger(),"Findpath: Planning from [%.2f, %.2f, %.2f] to [%.2f, %.2f, %.2f]", start_point.x(), start_point.y(),
            start_point.z(), goal_point.x(), goal_point.y(), goal_point.z());
 
   std::vector<double> bbx   = {planning_bbx_size_h, planning_bbx_size_h, planning_bbx_size_v};
-  ros::Time           start = ros::Time::now();
-  ROS_INFO("[%s]: Tree resampling took %.2f s.", ros::this_node::getName().c_str(), (ros::Time::now() - start).toSec());
+  rclcpp::Time           start = this->now();
+  RCLCPP_INFO(this->get_logger(),"Tree resampling took %.2f s.", (this->now() - start).toSec());
   std::vector<Node> node_path = getNodePath(start_point, goal_point, planning_octree, ignore_unknown_cells_near_start, box_size_for_unknown_cells_replacement);
   std::vector<octomap::point3d>   waypoints;
   std::vector<octomap::OcTreeKey> waypoints_keys;
 
-  start = ros::Time::now();
+  start = this->now();
   if (apply_postprocessing) {
 
     int n_waypoints_max;
@@ -180,11 +180,11 @@ std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(
         getFilteredPlan(waypoints_keys, shortening_window_size, shortening_dist);  // FIXME: check whether there was no reason to comment this out
     waypoints = getWaypointPath(safe_filtered_key_plan);
 
-    ROS_INFO("[%s]: Path postprocessing took %.2f ms.", ros::this_node::getName().c_str(), (ros::Time::now() - start).toSec() * 1000);
+    RCLCPP_INFO(this->get_logger(),"Path postprocessing took %.2f ms.", (this->now() - start).toSec() * 1000);
 
   } else if (make_path_straight) {
     waypoints = getStraightenWaypointPath(node_path, 0.2);
-    ROS_INFO("[%s]: Path straightening took %.2f s.", ros::this_node::getName().c_str(), (ros::Time::now() - start).toSec());
+    RCLCPP_INFO(this->get_logger(),"Path straightening took %.2f s.", (this->now() - start).toSec());
   } else {
     waypoints = getWaypointPath(node_path);
   }
@@ -197,15 +197,15 @@ std::pair<std::vector<octomap::point3d>, bool> AstarPlanner::findPath(
     waypoints = getWaypointPathWithoutObsoletePoints(waypoints, obsolete_points_tolerance);
   }
 
-  ROS_INFO("[%s]: ----------------- Init path -------------------", ros::this_node::getName().c_str());
+  RCLCPP_INFO(this->get_logger(),"----------------- Init path -------------------");
   for (size_t k = 0; k < node_path.size(); k++) {
     octomap::point3d p = planning_octree->keyToCoord(node_path[k].key);
-    ROS_INFO("[%s]: Node %lu: [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), k, p.x(), p.y(), p.z());
+    RCLCPP_INFO(this->get_logger(),"Node %lu: [%.2f, %.2f, %.2f]", k, p.x(), p.y(), p.z());
   }
 
-  ROS_INFO("[%s]: ----------------- Final path -------------------", ros::this_node::getName().c_str());
+  RCLCPP_INFO(this->get_logger(),"----------------- Final path -------------------");
   for (size_t k = 0; k < waypoints.size(); k++) {
-    ROS_INFO("[%s]: Node %lu: [%.2f, %.2f, %.2f]", ros::this_node::getName().c_str(), k, waypoints[k].x(), waypoints[k].y(), waypoints[k].z());
+    RCLCPP_INFO(this->get_logger(),"Node %lu: [%.2f, %.2f, %.2f]", k, waypoints[k].x(), waypoints[k].y(), waypoints[k].z());
   }
 
   bool direct_path_to_goal_found = false;  // TODO: return this bool from getNodePathFunction
@@ -222,7 +222,7 @@ std::vector<Node> AstarPlanner::getNodePath(const octomap::point3d& start_point,
   std::vector<Node> waypoints;
 
   if (!initialized_) {
-    ROS_WARN("[AstarPlanner]: Cannot start planning, planner not initialized. Returning empty path.");
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Cannot start planning, planner not initialized. Returning empty path.");
     return waypoints;
   }
 
@@ -237,10 +237,10 @@ std::vector<Node> AstarPlanner::getNodePath(const octomap::point3d& start_point,
   start_.pose = start_point;
   goal_.pose  = goal_point;
 
-  ROS_INFO("[AstarPlanner]: Get node path start, resolution = %.2f", resolution_);
+  RCLCPP_INFO(this->get_logger(),"Get node path start, resolution = %.2f", resolution_);
 
   octomap::OcTreeKey start_key = planning_octree_->coordToKey(start_point);
-  ROS_INFO("[debug]: astar planner ignore unknown cells near start = %d ", ignore_unknown_cells_near_start);
+  RCLCPP_INFO(this->get_logger()," astar planner ignore unknown cells near start = %d ", ignore_unknown_cells_near_start);
   if (ignore_unknown_cells_near_start) {
     replaceUnknownByFreeCells(start_key, box_size_for_unknown_cells_replacement);
   }
@@ -262,12 +262,12 @@ std::vector<Node> AstarPlanner::getNodePath(const std::vector<octomap::point3d>&
   std::vector<Node> waypoints;
 
   if (!initialized_) {
-    ROS_WARN("[AstarPlanner]: Cannot start planning, planner not initialized. Returning empty path.");
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Cannot start planning, planner not initialized. Returning empty path.");
     return waypoints;
   }
 
   if (initial_waypoints.size() < 2) {
-    ROS_WARN("[AstarPlanner]: Cannot start planning, vector of waypoints contains only %lu waypoints, at least 2 (start and goal) expected.",
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Cannot start planning, vector of waypoints contains only %lu waypoints, at least 2 (start and goal) expected.",
              initial_waypoints.size());
   }
 
@@ -286,7 +286,7 @@ std::vector<Node> AstarPlanner::getNodePath(const std::vector<octomap::point3d>&
   double former_planning_timeout = planning_timeout_;                                         // store planning timeout for a single path
   planning_timeout_              = planning_timeout_ / double(initial_waypoints.size() - 1);  // change planning timeout according to number of waypoints
   std::vector<Node> partial_waypoints;
-  ROS_INFO("[AstarPlanner]: Get node path for multiple waypoints, resolution = %.2f", resolution_);
+  RCLCPP_INFO(this->get_logger()," Get node path for multiple waypoints, resolution = %.2f", resolution_);
   for (size_t k = 1; k < initial_waypoints.size(); k++) {
     start_.pose       = waypoints.size() == 0 ? initial_waypoints[0] : waypoints.back().pose;
     goal_.pose        = initial_waypoints[k];
@@ -294,10 +294,10 @@ std::vector<Node> AstarPlanner::getNodePath(const std::vector<octomap::point3d>&
 
     if (partial_waypoints.size() == 0) {
       if (waypoints.size() == 0) {
-        ROS_WARN("[AstarPlanner]: Partial path to goal %lu not found proceeding to next point.", k);
+        RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Partial path to goal %lu not found proceeding to next point.", k);
         continue;
       } else {
-        ROS_WARN("[AstarPlanner]: Partial path not found, returning found path.");
+        RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Partial path not found, returning found path.");
         return waypoints;
       }
     } else {
@@ -328,8 +328,8 @@ void AstarPlanner::replaceUnknownByFreeCells(const octomap::OcTreeKey& start_key
   octomap::point3d      p_max = p + octomap::point3d(box_size, box_size, box_size);
 
   planning_octree_->getUnknownLeafCenters(unknown_cells_centers, p_min, p_max);
-  ROS_INFO_COND(verbose_, "[AstarPlanner]: Replacing unknown cells by free in surrounding of point [%.2f, %.2f, %.2f].", p.x(), p.y(), p.z());
-  ROS_INFO("[debug]: unknown cells centers size before = %lu", unknown_cells_centers.size());
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),verbose_, "[AstarPlanner]: Replacing unknown cells by free in surrounding of point [%.2f, %.2f, %.2f].", p.x(), p.y(), p.z());
+  RCLCPP_INFO(this->get_logger(),"[debug]: unknown cells centers size before = %lu", unknown_cells_centers.size());
 
   for (auto& n : unknown_cells_centers) {
     planning_octree_->updateNode(n, false);
@@ -337,15 +337,15 @@ void AstarPlanner::replaceUnknownByFreeCells(const octomap::OcTreeKey& start_key
 
   octomap::point3d_list unknown_cells_centers_after;
   planning_octree_->getUnknownLeafCenters(unknown_cells_centers_after, p_min, p_max);
-  ROS_INFO("[debug]: unknown cells centers size after = %lu", unknown_cells_centers_after.size());
+  RCLCPP_INFO(this->get_logger(),"[debug]: unknown cells centers size after = %lu", unknown_cells_centers_after.size());
 
-  ROS_INFO_COND(debug_, "[AstarPlanner]: Unknown cells replaced.");
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Unknown cells replaced.");
 }
 //}
 
 /* getNodePath() //{ */
 std::vector<Node> AstarPlanner::getNodePath() {
-  ROS_INFO("[AstarPlanner]: Get node path start");
+  RCLCPP_INFO(this->get_logger(),"[AstarPlanner]: Get node path start");
   std::vector<Node>                            waypoints;
   AstarPriorityQueue                           open_list;
   std::unordered_set<Node, NodeHasher>         closed_list;
@@ -358,36 +358,36 @@ std::vector<Node> AstarPlanner::getNodePath() {
   goal_.key     = planning_octree_->coordToKey(goal_.pose);
   goal_.h_cost  = 0.0;
 
-  ros::Time start_time = ros::Time::now();
-  ROS_INFO_COND(debug_, "[AstarPlanner] Start octomap to pointcloud");
+  rclcpp::Time start_time = this->now();
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner] Start octomap to pointcloud");
   std::vector<pcl::PointXYZ> pcl_points =
       octomapToPointcloud();  // TODO: replace by detection of maxmin x, maxmin y and maxmin z, for reasonable setting of are
 
   if (pcl_points.size() > 0) {
-    ROS_INFO_COND(verbose_, "[AstarPlanner]: Start conversion");
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),verbose_, "[AstarPlanner]: Start conversion");
     pcl::PointCloud<pcl::PointXYZ>::Ptr simulated_pointcloud = PCLMap::pclVectorToPointcloud(pcl_points);
-    ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree start");
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: init kd tree start");
     pcl_map_.initKDTreeSearch(simulated_pointcloud);
-    ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree end");
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: init kd tree end");
   }
 
   if (!checkValidityWithNeighborhood(goal_)) {
-    ROS_WARN_COND(debug_, "[AstarPlanner]: Goal destination unreachable.");
+    RCLCPP_WARN_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Goal destination unreachable.");
     Node secondary_goal_ = getValidNodeInNeighborhood(goal_);
     if (secondary_goal_.key.k[0] == 0) {
-      ROS_WARN_COND(verbose_, "[AstarPlanner]: Secondary goal in the neighborhood not found. Destination unreachable.");
+      RCLCPP_WARN_EXPRESSION(this->get_logger(),verbose_, "[AstarPlanner]: Secondary goal in the neighborhood not found. Destination unreachable.");
       if (!enable_planning_to_unreachable_goal_) {
-        ROS_WARN_COND(verbose_, "[AstarPlanner]: Planning to unreachable goal not allowed. Returning empty path.");
+        RCLCPP_WARN_EXPRESSION(this->get_logger(),verbose_, "[AstarPlanner]: Planning to unreachable goal not allowed. Returning empty path.");
         return waypoints;
       } else {
-        ROS_INFO_COND(debug_, "[AstarPlanner]: Goal unreachable, but planning to unreachable goal allowed.");
+        RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Goal unreachable, but planning to unreachable goal allowed.");
       }
     } else {
-      ROS_INFO_COND(debug_, "[AstarPlanner]: Secondary goal found. Original goal [%d, %d, %d] replaced by [%d, %d, %d].", goal_.key.k[0], goal_.key.k[1],
+      RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Secondary goal found. Original goal [%d, %d, %d] replaced by [%d, %d, %d].", goal_.key.k[0], goal_.key.k[1],
                     goal_.key.k[2], secondary_goal_.key.k[0], secondary_goal_.key.k[1], secondary_goal_.key.k[2]);
       goal_.pose           = planning_octree_->keyToCoord(goal_.key);
       secondary_goal_.pose = planning_octree_->keyToCoord(secondary_goal_.key);
-      ROS_INFO_COND(verbose_, "[AstarPlanner]: Secondary goal found. Original goal [%.2f, %.2f, %.2f] replaced by [%.2f, %.2f, %.2f].", goal_.pose.x(),
+      RCLCPP_INFO_EXPRESSION(this->get_logger(),verbose_, "[AstarPlanner]: Secondary goal found. Original goal [%.2f, %.2f, %.2f] replaced by [%.2f, %.2f, %.2f].", goal_.pose.x(),
                     goal_.pose.y(), goal_.pose.z(), secondary_goal_.pose.x(), secondary_goal_.pose.y(), secondary_goal_.pose.z());
       goal_ = secondary_goal_;
     }
@@ -398,7 +398,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
   }
 
   if (isNodeGoal(start_)) {
-    ROS_WARN("[AstarPlanner]: Planner initialized at goal position. Returning empty plan.");
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Planner initialized at goal position. Returning empty plan.");
     waypoints.push_back(start_);
     return waypoints;
   }
@@ -407,10 +407,10 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
   if (waypoints_init.size() > 0) {
     start_ = waypoints_init.back();
-    ROS_WARN("[AstarPlanner]: Start position unfeasible. Generating path to nearest feasible node.");
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Start position unfeasible. Generating path to nearest feasible node.");
   }
 
-  ROS_INFO_COND(debug_, "[AstarPlanner]: Add start into open list.");
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Add start into open list.");
   start_.f_cost = 0.0;
   open_list.push(start_);
   open_set.insert(start_);
@@ -420,15 +420,15 @@ std::vector<Node> AstarPlanner::getNodePath() {
   nearest.h_cost   = DBL_MAX;
   int loop_counter = 1;
   int node_removed = 0;  // 0 for not present in open list, 1 for present and removed, -1 for present and not removed
-  ROS_INFO_COND(debug_, "[AstarPlanner]: Start key = [%d, %d, %d]", start_.key.k[0], start_.key.k[1], start_.key.k[2]);
-  ROS_INFO_COND(debug_, "[AstarPlanner]: Goal key = [%d, %d, %d]", goal_.key.k[0], goal_.key.k[1], goal_.key.k[2]);
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Start key = [%d, %d, %d]", start_.key.k[0], start_.key.k[1], start_.key.k[2]);
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Goal key = [%d, %d, %d]", goal_.key.k[0], goal_.key.k[1], goal_.key.k[2]);
 
   while (!open_set.empty()) {
     if (loop_counter % 100 == 0) {
-      ROS_INFO_COND(debug_, "[AstarPlanner]: Loop counter = %d, open list size = %lu, closed_list_size = %lu", loop_counter, open_list.size(),
+      RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Loop counter = %d, open list size = %lu, closed_list_size = %lu", loop_counter, open_list.size(),
                     closed_list.size());
-      if ((ros::Time::now() - start_time).toSec() > (planning_timeout_ - map_conversion_time_)) {
-        ROS_WARN("[AstarPlanner]: Planning timeout reached.");
+      if ((this->now() - start_time).toSec() > (planning_timeout_ - map_conversion_time_)) {
+        RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Planning timeout reached.");
         break;
       }
     }
@@ -438,7 +438,7 @@ std::vector<Node> AstarPlanner::getNodePath() {
     closed_list.insert(current);
 
     if (isNodeGoal(current)) {
-      ROS_INFO_COND(debug_, "[AstarPlanner]: Goal found");
+      RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Goal found");
       break;
     }
     std::vector<Node> neighbors;
@@ -474,19 +474,19 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
     loop_counter++;
   }
-  ROS_INFO("[AstarPlanner debug]: Astar ended after %d iterations", loop_counter);
+  RCLCPP_INFO(this->get_logger(),"[AstarPlanner debug]: Astar ended after %d iterations", loop_counter);
 
   batch_visualizer_->clearVisuals();
   batch_visualizer_->clearBuffers();
   visualizeOccupiedPoints(pcl_points);
   visualizeGoal(planning_octree_->keyToCoord(goal_.key));
-  ROS_INFO("[AstarPlanner debug]: Open set size %lu.", open_set.size());
+  RCLCPP_INFO(this->get_logger(),"[AstarPlanner debug]: Open set size %lu.", open_set.size());
   visualizeExpansions(open_set, closed_list, *planning_octree_);
   batch_visualizer_->publish();
 
   // path reconstruction
   if (!isNodeGoal(current)) {
-    ROS_WARN("[AstarPlanner]: Path not found, goal unreachable.");
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Path not found, goal unreachable.");
 
     if (break_at_timeout_) {
       return std::vector<Node>();
@@ -494,42 +494,42 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
     octomap::point3d nearest_coords = planning_octree_->keyToCoord(nearest.key);
     octomap::point3d goal_coords    = planning_octree_->keyToCoord(goal_.key);
-    ROS_INFO_COND(verbose_,
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),verbose_,
                   "[AstarPlanner]: Path to nearest node to goal [%.2f, %.2f, %.2f] found. Replacing original goal [%.2f, %.2f, %.2f] by nearest node.",
                   nearest_coords.x(), nearest_coords.y(), nearest_coords.z(), goal_coords.x(), goal_coords.y(), goal_coords.z());
 
     if (!areKeysEqual(current.key, nearest.key)) {
-      ROS_INFO_COND(debug_, "[AstarPlanner]: current and nearest are not equal");
+      RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: current and nearest are not equal");
       current = nearest;
     }
   }
 
   last_found_goal_ = current;
-  ROS_INFO_COND(debug_, "[AstarPlanner]: start path reconstruction");
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: start path reconstruction");
   current.pose = planning_octree_->keyToCoord(current.key);
   waypoints.push_back(current);
   int counter = 0;
-  ROS_INFO_COND(debug_, "[AstarPlanner]: path reconstruction %d, waypoint key = [%d, %d, %d]", counter, waypoints[counter].key.k[0],
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: path reconstruction %d, waypoint key = [%d, %d, %d]", counter, waypoints[counter].key.k[0],
                 waypoints[counter].key.k[1], waypoints[counter].key.k[2]);
 
   while (abs(waypoints[counter].f_cost) > 1e-5) {
     waypoints.push_back(parent_list[waypoints[counter]]);
     counter++;
     waypoints[counter].pose = planning_octree_->keyToCoord(waypoints[counter].key);
-    ROS_INFO_COND(debug_, "[AstarPlanner]: path reconstruction %d, waypoint key = [%d, %d, %d]", counter, waypoints[counter].key.k[0],
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: path reconstruction %d, waypoint key = [%d, %d, %d]", counter, waypoints[counter].key.k[0],
                   waypoints[counter].key.k[1], waypoints[counter].key.k[2]);
     /* sleep(0.1); */
   }
 
   // reverse the path from end to beginning
-  ROS_INFO_COND(debug_, "[AstarPlanner]: reversing waypoints");
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: reversing waypoints");
   std::reverse(waypoints.begin(), waypoints.end());
   waypoints_init.insert(waypoints_init.end(), waypoints.begin(), waypoints.end());
   /* stop_index         = 15; */
   /* start_node_next    = waypoints[0]; */
-  ros::Time end_time = ros::Time::now();
-  ROS_INFO_COND(debug_, "[AstarPlanner]: AstarPlanner: returning path of %lu waypoints", waypoints_init.size());
-  ROS_WARN_COND(verbose_, "[AstarPlanner]: Path planning took %.3f ms", (end_time - start_time).toSec() * 1000.0);
+  rclcpp::Time end_time = this->now();
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: AstarPlanner: returning path of %lu waypoints", waypoints_init.size());
+  RCLCPP_WARN_EXPRESSION(this->get_logger(),verbose_, "[AstarPlanner]: Path planning took %.3f ms", (end_time - start_time).toSec() * 1000.0);
   return waypoints_init;
 }
 //}
@@ -538,11 +538,11 @@ std::vector<Node> AstarPlanner::getNodePath() {
 
 std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(const Node& start) {
 
-  ros::Time         start_time = ros::Time::now();
+  rclcpp::Time         start_time = this->now();
   std::vector<Node> waypoints_filtered;
 
   if (!checkValidityWithKDTree(start)) {  // start is not feasible, try to find closest feasible point
-    ROS_INFO("[%s]: gpnfn start node is not collision free ", ros::this_node::getName().c_str());
+    RCLCPP_INFO(this->get_logger(),"gpnfn start node is not collision free ");
     double global_safe_dist = safe_dist_;
     safe_dist_              = 0.0;
     std::priority_queue<Node, std::vector<Node>, NodeCompare> heap;
@@ -622,19 +622,19 @@ std::vector<Node> AstarPlanner::getPathToNearestFeasibleNode(const Node& start) 
 
         waypoints_filtered             = getFilteredNeighborhoodPlan(waypoints);
         waypoints_filtered.back().pose = planning_octree_->keyToCoord(waypoints_filtered.back().key);
-        ROS_INFO("[%s]: Replacing original start [%.2f, %.2f, %.2f] by start in the free space [%.2f, %.2f, %.2f].", ros::this_node::getName().c_str(),
+        RCLCPP_INFO(this->get_logger(),"Replacing original start [%.2f, %.2f, %.2f] by start in the free space [%.2f, %.2f, %.2f].",
                  start_.pose.x(), start_.pose.y(), start_.pose.z(), waypoints_filtered.back().pose.x(), waypoints_filtered.back().pose.y(),
                  waypoints_filtered.back().pose.z());
 
         for (int k = 0; k < waypoints_filtered.size(); k++) {
-          ROS_INFO("[%s]: escape path node [%d] = [ %.2f, %.2f, %.2f] ", ros::this_node::getName().c_str(), k, waypoints_filtered[k].pose.x(),
+          RCLCPP_INFO(this->get_logger(),"escape path node [%d] = [ %.2f, %.2f, %.2f] ", k, waypoints_filtered[k].pose.x(),
                    waypoints_filtered[k].pose.y(), waypoints_filtered[k].pose.z());
         }
       }
     }
   }
 
-  ROS_INFO("[%s]: Getting path to nearest feasible node took %.3f", ros::this_node::getName().c_str(), (ros::Time::now() - start_time).toSec());
+  RCLCPP_INFO(this->get_logger(),"Getting path to nearest feasible node took %.3f",(this->now() - start_time).toSec());
   return waypoints_filtered;
 }
 
@@ -654,34 +654,34 @@ octomap::point3d AstarPlanner::getLastFoundGoal() {
 std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octomap::OcTreeKey>& key_path, double safe_dist, int max_iteration,
                                                           double z_diff_tolerance, bool fix_goal_point, bool horizontal_neighbors_only, double timeout) {
   /* bool visualization_pause_disabled = false; */
-  ros::Time start_time                       = ros::Time::now();
+  rclcpp::Time start_time                       = this->now();
   double    timeout_percentage_for_filtering = 0.25;
 
-  ROS_INFO_COND(debug_, "[AstarPlanner]: GetSafePath start");
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: GetSafePath start");
   std::vector<octomap::OcTreeKey> local_path_keys;
   local_path_keys = key_path;
 
   // check for zero path length
   if (key_path.size() < 2) {
-    ROS_WARN("[AstarPlanner]: getSafePath receives too short path (length = %lu)", key_path.size());
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: getSafePath receives too short path (length = %lu)", key_path.size());
     return local_path_keys;
   }
 
   // TODO: generate pointcloud for reasonable surrounding
   std::vector<int> map_limits = getMapLimits(key_path, 0, key_path.size(), ceil(max_iteration * sqrt(2)), ceil(max_iteration * sqrt(2)));
-  ROS_INFO_COND(debug_, "[AstarPlanner]: octomap to pointcloud start");
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: octomap to pointcloud start");
   std::vector<pcl::PointXYZ> pcl_points =
       octomapToPointcloud(map_limits);  // TODO: replace by detection of maxmin x, maxmin y and maxmin z, for reasonable setting of area
-  ROS_INFO_COND(debug_, "[AstarPlanner]: octomap to pointcloud ends");
-  ros::Time end_time = ros::Time::now();
-  ROS_WARN_COND(verbose_, "Octomap to pointcloud took %.2f ms", (end_time - start_time).toSec() * 1000.0);
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: octomap to pointcloud ends");
+  rclcpp::Time end_time = this->now();
+  RCLCPP_WARN_EXPRESSION(this->get_logger(),verbose_, "Octomap to pointcloud took %.2f ms", (end_time - start_time).toSec() * 1000.0);
   if (pcl_points.size() > 0) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr simulated_pointcloud = PCLMap::pclVectorToPointcloud(pcl_points);
-    ROS_INFO_COND(debug_, "[AstarPlanner]: Map limits: x = [%d, %d], y = [%d, %d], z = [%d, %d]", map_limits[0], map_limits[1], map_limits[2], map_limits[3],
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Map limits: x = [%d, %d], y = [%d, %d], z = [%d, %d]", map_limits[0], map_limits[1], map_limits[2], map_limits[3],
                   map_limits[4], map_limits[5]);
-    ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree start");
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: init kd tree start");
     pcl_map_.initKDTreeSearch(simulated_pointcloud);
-    ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree end");
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: init kd tree end");
   } else {
     return local_path_keys;
   }
@@ -691,18 +691,18 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
   // initialize vector of keys
   /* std::vector<octomap::OcTreeKey> added_waypoints; */
   /* octomap::OcTreeKey              last_waypoint; */
-  ROS_INFO_COND(debug_, "[AstarPlanner]: local_path_keys initialized");
-  ros::Duration last_iter_duration = ros::Duration(0.0);
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: local_path_keys initialized");
+  rclcpp::Duration last_iter_duration(0.0);
   for (int it = 0; it < max_iteration; it++) {
 
-    if ((1 - timeout_percentage_for_filtering) * timeout - (ros::Time::now() - start_time).toSec() < last_iter_duration.toSec()) {
-      ROS_INFO("[AstarPlanner]: Path postprocessing timeout reached at iteration %d", it);
+    if ((1 - timeout_percentage_for_filtering) * timeout - (this->now() - start_time).toSec() < last_iter_duration.toSec()) {
+      RCLCPP_INFO(this->get_logger(),"[AstarPlanner]: Path postprocessing timeout reached at iteration %d", it);
       break;
     }
 
-    ros::Time iter_start = ros::Time::now();
+    rclcpp::Time iter_start = this->now();
 
-    ROS_INFO_COND(debug_, "[AstarPlanner]: Start iteration %d", it);
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Start iteration %d", it);
     /* visualization_pause_disabled = false; */
     std::vector<octomap::OcTreeKey> local_path_keys_next;
     local_path_keys_next.clear();
@@ -710,7 +710,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
     has_changed = false;
 
     for (uint k = 1; k < local_path_keys.size(); k++) {
-      ROS_INFO_COND(debug_, "[AstarPlanner]: Local path key %d: [%d, %d, %d]", k, local_path_keys[k].k[0], local_path_keys[k].k[1], local_path_keys[k].k[2]);
+      RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Local path key %d: [%d, %d, %d]", k, local_path_keys[k].k[0], local_path_keys[k].k[1], local_path_keys[k].k[2]);
       /* last_waypoint                  = local_path_keys_next.back(); */
       is_current_key_already_in_plan = false;
 
@@ -722,7 +722,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
       }
 
       if (is_current_key_already_in_plan) {
-        ROS_INFO_COND(debug_, "[AstarPlanner]: Current key already in plan, continue to next key");
+        RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Current key already in plan, continue to next key");
         continue;
       }
 
@@ -731,10 +731,10 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
 
         if (areKeysEqual(local_path_keys_next.back(), local_path_keys[k])) {
           has_changed = true;
-          ROS_INFO_COND(debug_, "[AstarPlanner]: Distance is safe and previous node is equal to current node. Nothing to add.");
+          RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Distance is safe and previous node is equal to current node. Nothing to add.");
         } else if (areKeysInNeighborhood(local_path_keys_next.back(), local_path_keys[k])) {
           local_path_keys_next.push_back(local_path_keys[k]);
-          ROS_INFO_COND(debug_, "[AstarPlanner]: Distance is safe. add [%d, %d, %d] to next path keys", local_path_keys[k].k[0], local_path_keys[k].k[1],
+          RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Distance is safe. add [%d, %d, %d] to next path keys", local_path_keys[k].k[0], local_path_keys[k].k[1],
                         local_path_keys[k].k[2]);
         } else {
           local_path_keys_next.push_back(getConnectionNode3d(local_path_keys_next.back(), local_path_keys[k]));
@@ -742,7 +742,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
           /* added_waypoints.clear(); */
           /* added_waypoints.push_back(getConnectionNode3d(local_path_keys_next.back(), local_path_keys[k])); */
           has_changed = true;
-          ROS_INFO_COND(debug_, "[AstarPlanner]: Distance is safe, but nodes are not in the neighborhood, add [%d, %d, %d], [%d, %d, %d] to next path keys",
+          RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Distance is safe, but nodes are not in the neighborhood, add [%d, %d, %d], [%d, %d, %d] to next path keys",
                         local_path_keys_next.back().k[0], local_path_keys_next.back().k[1], local_path_keys_next.back().k[2], local_path_keys[k].k[0],
                         local_path_keys[k].k[1], local_path_keys[k].k[2]);
         }
@@ -751,16 +751,16 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
 
       /* octomap::OcTreeKey tmp_key = getBestNeighborEscape(local_path_keys[k], local_path_keys_next.back()); */
       octomap::OcTreeKey tmp_key = getBestNeighbor(local_path_keys[k], horizontal_neighbors_only);
-      ROS_INFO_COND(debug_, "[AstarPlanner]: Dist is not safe, solving connection for [%d, %d, %d] and current [%d, %d, %d] with best neighbor [%d, %d, %d]",
+      RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Dist is not safe, solving connection for [%d, %d, %d] and current [%d, %d, %d] with best neighbor [%d, %d, %d]",
                     local_path_keys_next.back().k[0], local_path_keys_next.back().k[1], local_path_keys_next.back().k[2], local_path_keys[k].k[0],
                     local_path_keys[k].k[1], local_path_keys[k].k[2], tmp_key.k[0], tmp_key.k[1], tmp_key.k[2]);
       if (areKeysEqual(tmp_key, local_path_keys_next.back())) {
-        ROS_INFO_COND(debug_, "[AstarPlanner]: Current node is equal to previous node. Nothing to add.");
+        RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Current node is equal to previous node. Nothing to add.");
         continue;  // check correctness
       } else if (areKeysInNeighborhood(tmp_key, local_path_keys_next.back())) {
         local_path_keys_next.push_back(tmp_key);
         has_changed = true;
-        ROS_INFO_COND(debug_, "[AstarPlanner]: Current node is in neighborhood of previous node. Adding the current node to local path.");
+        RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Current node is in neighborhood of previous node. Adding the current node to local path.");
 
       } else {
         std::vector<octomap::OcTreeKey> additional_waypoints = getAdditionalWaypoints3d(local_path_keys_next.back(), tmp_key);
@@ -770,11 +770,11 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
         }
         local_path_keys_next.push_back(tmp_key);
         has_changed = true;
-        ROS_INFO_COND(debug_ && (additional_waypoints.size() == 2),
+        RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_ && (additional_waypoints.size() == 2),
                       "[AstarPlanner]: Nodes are unconnected, adding nodes [%d, %d, %d], [%d, %d, %d] and [%d, %d, %d] to local path",
                       additional_waypoints[0].k[0], additional_waypoints[0].k[1], additional_waypoints[0].k[2], additional_waypoints[1].k[0],
                       additional_waypoints[1].k[1], additional_waypoints[1].k[2], tmp_key.k[0], tmp_key.k[1], tmp_key.k[2]);
-        ROS_INFO_COND(debug_ && (additional_waypoints.size() == 1),
+        RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_ && (additional_waypoints.size() == 1),
                       "[AstarPlanner]: Nodes are unconnected, adding nodes [%d, %d, %d] and [%d, %d, %d] to local path", additional_waypoints[0].k[0],
                       additional_waypoints[0].k[1], additional_waypoints[0].k[2], tmp_key.k[0], tmp_key.k[1], tmp_key.k[2]);
       }
@@ -785,7 +785,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
         if (areKeysInNeighborhood(local_path_keys.back(), local_path_keys_next.back())) {
           local_path_keys_next.push_back(local_path_keys.back());
           has_changed = true;
-          ROS_INFO_COND(debug_, "[AstarPlanner]: Current node is in neighborhood of previous node. Adding the current node to local path.");
+          RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Current node is in neighborhood of previous node. Adding the current node to local path.");
         } else {
           std::vector<octomap::OcTreeKey> additional_waypoints = getAdditionalWaypoints3d(local_path_keys_next.back(), local_path_keys.back());
           for (uint i = 0; i < additional_waypoints.size(); i++) {
@@ -797,7 +797,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
       }
     }
 
-    ROS_INFO_COND(debug_, "[AstarPlanner]: First lpk size %lu = lpk next size = %lu", local_path_keys.size(), local_path_keys_next.size());
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: First lpk size %lu = lpk next size = %lu", local_path_keys.size(), local_path_keys_next.size());
     /* local_path_keys = getFilteredNeighborhoodPlan(local_path_keys_next); */
     local_path_keys = local_path_keys_next;
     // copy local_path_keys_next
@@ -805,25 +805,25 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getSafePath(const std::vector<octo
     /* for (uint k = 0; k < local_path_keys_next.size(); k++) { */
     /*   local_path_keys.push_back(local_path_keys_next[k]); */
     /* } */
-    ROS_INFO_COND(debug_, "[AstarPlanner]: Second lpk size %lu = lpk next size = %lu", local_path_keys.size(), local_path_keys_next.size());
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Second lpk size %lu = lpk next size = %lu", local_path_keys.size(), local_path_keys_next.size());
     if (!has_changed) {
-      ROS_INFO_COND(verbose_, "[AstarPlanner]: No change detected -> safe path algorithm ended.");
+      RCLCPP_INFO_EXPRESSION(this->get_logger(),verbose_, "[AstarPlanner]: No change detected -> safe path algorithm ended.");
       break;
     }
-    ROS_WARN_COND(debug_, "[AstarPlanner]: ------------------------------------------------------------------------");
+    RCLCPP_WARN_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: ------------------------------------------------------------------------");
     for (uint i = 0; i < local_path_keys.size(); i++) {
-      ROS_INFO_COND(debug_, "[AstarPlanner]: Safe path key %02d: [%d, %d, %d] ", i, local_path_keys[i].k[0], local_path_keys[i].k[1], local_path_keys[i].k[2]);
+      RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Safe path key %02d: [%d, %d, %d] ", i, local_path_keys[i].k[0], local_path_keys[i].k[1], local_path_keys[i].k[2]);
     }
-    ROS_WARN_COND(debug_, "[AstarPlanner]: ------------------------------------------------------------------------");
-    last_iter_duration = (ros::Time::now() - iter_start);
+    RCLCPP_WARN_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: ------------------------------------------------------------------------");
+    last_iter_duration = (this->now() - iter_start);
   }
 
-  ROS_WARN_COND(debug_, "Get safe path took %.2f ms", (ros::Time::now() - start_time).toSec() * 1000.0);
-  start_time      = ros::Time::now();
+  RCLCPP_WARN_EXPRESSION(this->get_logger(),debug_, "Get safe path took %.2f ms", (this->now() - start_time).toSec() * 1000.0);
+  start_time      = this->now();
   local_path_keys = getFilteredNeighborhoodPlan(local_path_keys);
   local_path_keys = getStraightenKeyPath(local_path_keys);
   local_path_keys = getZzFilteredPlan(local_path_keys, z_diff_tolerance);
-  ROS_WARN_COND(debug_, "Safe path filtering took %.2f ms", (ros::Time::now() - start_time).toSec() * 1000.0);
+  RCLCPP_WARN_EXPRESSION(this->get_logger(),debug_, "Safe path filtering took %.2f ms", (this->now() - start_time).toSec() * 1000.0);
 
   return local_path_keys;
 }
@@ -931,20 +931,20 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getZzFilteredPlan(const std::vecto
 /* getStraightenKeyPath() //{ */
 std::vector<octomap::OcTreeKey> AstarPlanner::getStraightenKeyPath(const std::vector<octomap::OcTreeKey>& key_path) {
   std::vector<octomap::OcTreeKey> straighten_path;
-  ROS_INFO_COND(debug_, "[AstarPlanner]: Start key path straightening.");
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Start key path straightening.");
   if (key_path.size() < 3) {
     straighten_path = key_path;
-    ROS_INFO_COND(debug_, "[AstarPlanner]: Path too short to straighten, returning original path.");
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Path too short to straighten, returning original path.");
   } else {
     straighten_path.push_back(key_path[0]);
     for (uint i = 0; i < key_path.size() - 2; i++) {
       if (areKeysDiagonalNeighbors(key_path[i], key_path[i + 2])) {
-        ROS_INFO_COND(debug_, "[AstarPlanner]: Keys [%d, %d, %d] and [%d, %d, %d] are diagonal neighbors.", key_path[i].k[0], key_path[i].k[1],
+        RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Keys [%d, %d, %d] and [%d, %d, %d] are diagonal neighbors.", key_path[i].k[0], key_path[i].k[1],
                       key_path[i].k[2], key_path[i + 2].k[0], key_path[i + 2].k[1], key_path[i + 2].k[2]);
         straighten_path.push_back(key_path[i + 2]);
         i++;  // skip i+1 key
       } else {
-        ROS_INFO_COND(debug_, "[AstarPlanner]: Keys [%d, %d, %d] and [%d, %d, %d] are not diagonal neighbors.", key_path[i].k[0], key_path[i].k[1],
+        RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Keys [%d, %d, %d] and [%d, %d, %d] are not diagonal neighbors.", key_path[i].k[0], key_path[i].k[1],
                       key_path[i].k[2], key_path[i + 2].k[0], key_path[i + 2].k[1], key_path[i + 2].k[2]);
         straighten_path.push_back(key_path[i + 1]);
       }
@@ -958,7 +958,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getStraightenKeyPath(const std::ve
 std::vector<octomap::point3d> AstarPlanner::pruneWaypoints(std::vector<octomap::point3d>& waypoint_path, double pruning_dist) {
 
   if (waypoint_path.size() < 3) {
-    ROS_WARN("[AstarPlanner]: Nothing to prune. Returning original path.");
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Nothing to prune. Returning original path.");
     return waypoint_path;
   }
 
@@ -981,7 +981,7 @@ std::vector<octomap::point3d> AstarPlanner::pruneWaypoints(std::vector<octomap::
 std::vector<octomap::point3d> AstarPlanner::getWaypointPathWithoutObsoletePoints(std::vector<octomap::point3d>& waypoint_path, double tolerance) {
 
   if (waypoint_path.size() < 3) {
-    ROS_WARN("[AstarPlanner]: No obsolete points. Returning original path.");
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: No obsolete points. Returning original path.");
     return waypoint_path;
   }
 
@@ -1015,7 +1015,7 @@ double AstarPlanner::pointLineDist(octomap::point3d lb, octomap::point3d le, oct
 std::vector<octomap::point3d> AstarPlanner::getStraightenWaypointPath(std::vector<Node>& node_path, double dist_step) {
   std::vector<octomap::point3d> waypoints;
   if (node_path.size() < 2) {
-    ROS_WARN("[AstarPlanner]: AstarPlanner: Empty node path received. Returning empty plan.");
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: AstarPlanner: Empty node path received. Returning empty plan.");
     return waypoints;
   }
 
@@ -1060,13 +1060,13 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getFilteredPlan(const std::vector<
                                                               double enabled_filtering_dist) {
   std::vector<octomap::OcTreeKey> new_path;
   if (original_path.size() == 0) {
-    ROS_WARN("[AstarPlanner]: Empty path received, returning empty filtered path.");
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Empty path received, returning empty filtered path.");
     return new_path;
   }
   for (uint k = 0; k < original_path.size(); k++) {
-    ROS_INFO_COND(debug_, "[AstarPlanner]: Filtered path [%d] = [%d, %d, %d]", k, original_path[k].k[0], original_path[k].k[1], original_path[k].k[2]);
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Filtered path [%d] = [%d, %d, %d]", k, original_path[k].k[0], original_path[k].k[1], original_path[k].k[2]);
   }
-  ROS_INFO_COND(debug_, "[AstarPlanner]: Filtering: Last point of original_path = [%d, %d, %d] ", original_path[original_path.size() - 1].k[0],
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Filtering: Last point of original_path = [%d, %d, %d] ", original_path[original_path.size() - 1].k[0],
                 original_path[original_path.size() - 1].k[1], original_path[original_path.size() - 1].k[2]);
   new_path.push_back(original_path[0]);
   bool point_added = false;
@@ -1085,9 +1085,9 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getFilteredPlan(const std::vector<
     }
   }
   for (uint k = 0; k < new_path.size(); k++) {
-    ROS_INFO_COND(debug_, "[AstarPlanner]: Filtered path [%d] = [%d, %d, %d]", k, new_path[k].k[0], new_path[k].k[1], new_path[k].k[2]);
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Filtered path [%d] = [%d, %d, %d]", k, new_path[k].k[0], new_path[k].k[1], new_path[k].k[2]);
   }
-  ROS_INFO_COND(debug_, "[AstarPlanner]: Filtering: Last point of new_path = [%d, %d, %d] ", new_path[new_path.size() - 1].k[0],
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Filtering: Last point of new_path = [%d, %d, %d] ", new_path[new_path.size() - 1].k[0],
                 new_path[new_path.size() - 1].k[1], new_path[new_path.size() - 1].k[2]);
   return new_path;
 }
@@ -1097,7 +1097,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getFilteredPlan(const std::vector<
 std::vector<octomap::point3d> AstarPlanner::getWaypointPath(const std::vector<Node>& node_path) {
   std::vector<octomap::point3d> waypoints;
   if (node_path.empty()) {
-    ROS_WARN("[AstarPlanner]: AstarPlanner: Empty node path received. Returning empty plan.");
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: AstarPlanner: Empty node path received. Returning empty plan.");
     return waypoints;
   }
   for (auto node : node_path) {
@@ -1111,7 +1111,7 @@ std::vector<octomap::point3d> AstarPlanner::getWaypointPath(const std::vector<No
 std::vector<octomap::point3d> AstarPlanner::getWaypointPath(const std::vector<octomap::OcTreeKey>& key_path) {
   std::vector<octomap::point3d> waypoints;
   if (key_path.empty()) {
-    ROS_WARN("[AstarPlanner]: AstarPlanner: Empty key path received. Returning empty plan.");
+    RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: AstarPlanner: Empty key path received. Returning empty plan.");
     return waypoints;
   }
   for (auto key : key_path) {
@@ -1122,7 +1122,7 @@ std::vector<octomap::point3d> AstarPlanner::getWaypointPath(const std::vector<oc
 //}
 
 /* getKeyVectorFromCoordinates() //{ */
-std::vector<octomap::OcTreeKey> AstarPlanner::getKeyVectorFromCoordinates(const std::vector<geometry_msgs::Point>& pose_array) {
+std::vector<octomap::OcTreeKey> AstarPlanner::getKeyVectorFromCoordinates(const std::vector<geometry_msgs::msg::Point>& pose_array) {
   std::vector<octomap::OcTreeKey> key_path;
   for (uint k = 0; k < pose_array.size(); k++) {
     key_path.push_back(octomap::OcTreeKey(pose_array[k].x, pose_array[k].y, pose_array[k].z));
@@ -1133,10 +1133,10 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getKeyVectorFromCoordinates(const 
 
 /* firstUnfeasibleNodeInPath() //{ */
 std::pair<int, int> AstarPlanner::firstUnfeasibleNodeInPath(const std::vector<octomap::OcTreeKey>&   key_waypoints,
-                                                            const std::vector<geometry_msgs::Point>& pose_array, int n_points_forward,
+                                                            const std::vector<geometry_msgs::msg::Point>& pose_array, int n_points_forward,
                                                             const octomap::point3d& current_pose, double safe_dist_for_replanning,
                                                             double critical_dist_for_replanning) {
-  ROS_INFO_COND(debug_, "[AstarPlanner]: First unfeasible node in path start.");
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: First unfeasible node in path start.");
   std::pair<int, int> result;
   result.first         = -1;
   result.second        = -1;
@@ -1148,7 +1148,7 @@ std::pair<int, int> AstarPlanner::firstUnfeasibleNodeInPath(const std::vector<oc
       break;
     }
   }
-  ROS_INFO_COND(debug_, "[AstarPlanner]: Current pose idx found.");
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Current pose idx found.");
   uint                       end_index  = fmin(current_pose_idx + n_points_forward, key_waypoints.size());
   std::vector<int>           map_limits = getMapLimits(key_waypoints, current_pose_idx, end_index, ceil(2.0 / resolution_), ceil(2.0 / resolution_));
   std::vector<pcl::PointXYZ> pcl_points =
@@ -1156,11 +1156,11 @@ std::pair<int, int> AstarPlanner::firstUnfeasibleNodeInPath(const std::vector<oc
   if (pcl_points.size() > 0) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr simulated_pointcloud = PCLMap::pclVectorToPointcloud(pcl_points);
 
-    ROS_INFO_COND(true, "[AstarPlanner]: Map limits: x = [%d, %d], y = [%d, %d], z = [%d, %d]", map_limits[0], map_limits[1], map_limits[2], map_limits[3],
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),true, "[AstarPlanner]: Map limits: x = [%d, %d], y = [%d, %d], z = [%d, %d]", map_limits[0], map_limits[1], map_limits[2], map_limits[3],
                   map_limits[4], map_limits[5]);
-    ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree start");
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: init kd tree start");
     pcl_map_.initKDTreeSearch(simulated_pointcloud);
-    ROS_INFO_COND(debug_, "[AstarPlanner]: init kd tree end");
+    RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: init kd tree end");
 
     /* for (uint k = current_pose_idx; k < end_index; k++) { */
     /*   Node n; */
@@ -1194,12 +1194,12 @@ std::pair<int, int> AstarPlanner::firstUnfeasibleNodeInPath(const std::vector<oc
 /* octomapToPointcloud() //{ */
 std::vector<pcl::PointXYZ> AstarPlanner::octomapToPointcloud(const std::vector<int>& map_limits) {
   std::vector<pcl::PointXYZ> output_pcl;
-  ROS_INFO_COND(debug_, "[AstarPlanner]: octomap to pointcloud start, x = [%d, %d], y = [%d, %d], z = [%d, %d]", map_limits[0], map_limits[1], map_limits[2],
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: octomap to pointcloud start, x = [%d, %d], y = [%d, %d], z = [%d, %d]", map_limits[0], map_limits[1], map_limits[2],
                 map_limits[3], map_limits[4], map_limits[5]);
   for (int x = map_limits[0]; x <= map_limits[1]; x++) {
     for (int y = map_limits[2]; y <= map_limits[3]; y++) {
       for (int z = map_limits[4]; z <= map_limits[5]; z++) {
-        /* ROS_INFO("[AstarPlanner]: x = %d, y = %d, z = %d", x, y, z); */
+        /* RCLCPP_INFO(this->get_logger(),"[AstarPlanner]: x = %d, y = %d, z = %d", x, y, z); */
         pcl::PointXYZ      point;
         octomap::OcTreeKey tmp_key;
         tmp_key.k[0] = x;
@@ -1216,7 +1216,7 @@ std::vector<pcl::PointXYZ> AstarPlanner::octomapToPointcloud(const std::vector<i
       }
     }
   }
-  ROS_INFO_COND(debug_, "[AstarPlanner]: octomap to pointcloud end");
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: octomap to pointcloud end");
   return output_pcl;
 }
 //}
@@ -1260,7 +1260,7 @@ std::vector<pcl::PointXYZ> AstarPlanner::octomapToPointcloud() {
     }
   }
 
-  ROS_INFO_COND(debug_, "[AstarPlanner]: octomap to pointcloud end");
+  RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: octomap to pointcloud end");
   return output_pcl;
 }
 //}
@@ -1348,7 +1348,7 @@ std::vector<octomap::OcTreeKey> AstarPlanner::getAdditionalWaypoints(const octom
       additional_waypoints = getSafestWaypointsBetweenKeys(getPossibleWaypointsForThreeDiffCoord(k1, k2));
     } break;
     default: {
-      ROS_ERROR("[AstarPlanner]: Number of different coords = %d outside expected range. ", nof_diff_coords);
+      RCLCPP_ERROR(this->get_logger(),"[AstarPlanner]: Number of different coords = %d outside expected range. ", nof_diff_coords);
     }
   }
   return additional_waypoints;
@@ -1458,7 +1458,7 @@ std::vector<std::vector<octomap::OcTreeKey>> AstarPlanner::getPossibleWaypointsF
           switch_keys       = true;
         }
       } else {
-        ROS_WARN("[AstarPlanner]: Something is crazy: diff in coords %d = %d", m, diff_in_coords[m]);
+        RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Something is crazy: diff in coords %d = %d", m, diff_in_coords[m]);
       }
     }
   } else {
@@ -1623,7 +1623,7 @@ octomap::OcTreeKey AstarPlanner::findConnection(const octomap::OcTreeKey& k1, co
           res2.k[i] = (k1.k[i] + k2.k[i]) / 2;
           break;
         default:
-          ROS_WARN("[AstarPlanner]: Unexpected number in eucliden dist of keys.");
+          RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Unexpected number in eucliden dist of keys.");
       }
       double obs_dist_1 = pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(res1));
       double obs_dist_2 = pcl_map_.getDistanceFromNearestPoint(octomapKeyToPclPoint(res2));
@@ -1687,7 +1687,7 @@ octomap::OcTreeKey AstarPlanner::getBestNeighbor(const octomap::OcTreeKey& c, bo
       max_dist          = obs_dist;
     }
   }
-  /* ROS_INFO_COND(debug_, "[AstarPlanner]: Get best neighbor: current dist = %.2f, max_dist = %.2f", current_dist, max_dist); */
+  /* RCLCPP_INFO_EXPRESSION(this->get_logger(),debug_, "[AstarPlanner]: Get best neighbor: current dist = %.2f, max_dist = %.2f", current_dist, max_dist); */
   return best_neighbor_key;
 }
 //}
@@ -1747,7 +1747,7 @@ std::vector<Node> AstarPlanner::getPossibleSuccessors(const octomap::OcTreeKey& 
   std::vector<Node>  successors;
   octomap::OcTreeKey tmp_key;
   if (move_length == 1) {  // horizontal
-    /* ROS_INFO("[AstarPlanner]: Move length == 1"); */
+    /* RCLCPP_INFO(this->get_logger(),"[AstarPlanner]: Move length == 1"); */
     int c_coord  = current.k[0] != parent.k[0] ? 0 : current.k[1] != parent.k[1] ? 1 : 2;
     int dir_sign = current.k[c_coord] - parent.k[c_coord];
     int u_1, u_2;  // unchanged coords
@@ -1766,7 +1766,7 @@ std::vector<Node> AstarPlanner::getPossibleSuccessors(const octomap::OcTreeKey& 
       }
     }
   } else if (move_length == 2) {  // 2D - diagonal
-    /* ROS_INFO("[AstarPlanner]: Move length == 2"); */
+    /* RCLCPP_INFO(this->get_logger(),"[AstarPlanner]: Move length == 2"); */
     int u_coord = current.k[0] == parent.k[0] ? 0 : current.k[1] == parent.k[1] ? 1 : 2;
     int c_1     = u_coord == 0 ? 1 : 0;
     int c_2     = u_coord == 2 ? 1 : 2;
@@ -1813,7 +1813,7 @@ std::vector<Node> AstarPlanner::getPossibleSuccessors(const octomap::OcTreeKey& 
       }
     }
   } else {
-    /* ROS_INFO("[AstarPlanner]: Move length == 3"); */
+    /* RCLCPP_INFO(this->get_logger(),"[AstarPlanner]: Move length == 3"); */
     // cube
     // obscond_for_diagonal_move_
     // TODO: fill implementation for 3D move
@@ -1861,11 +1861,11 @@ std::vector<Node> AstarPlanner::getPossibleSuccessors(const octomap::OcTreeKey& 
       }
     }
   }
-  /* ROS_INFO("[AstarPlanner]: Parent = [%d, %d, %d], current = [%d, %d, %d]", parent.k[0], parent.k[1], parent.k[2], current.k[0],
+  /* RCLCPP_INFO(this->get_logger(),"[AstarPlanner]: Parent = [%d, %d, %d], current = [%d, %d, %d]", parent.k[0], parent.k[1], parent.k[2], current.k[0],
    * current.k[1], current.k[2]); */
-  /* ROS_WARN("[AstarPlanner]: Size of successors = %lu", successors.size()); */
+  /* RCLCPP_WARN(this->get_logger(),"[AstarPlanner]: Size of successors = %lu", successors.size()); */
   /* for (size_t k = 0; k < successors.size(); k++) { */
-  /*   ROS_INFO("[AstarPlanner]: Succesor %lu: [%d, %d, %d]", k, successors[k].key.k[0], successors[k].key.k[1],
+  /*   RCLCPP_INFO(this->get_logger(),"[AstarPlanner]: Succesor %lu: [%d, %d, %d]", k, successors[k].key.k[0], successors[k].key.k[1],
    * successors[k].key.k[2]); */
   /* } */
 
@@ -1893,14 +1893,14 @@ void AstarPlanner::setVerbose(const bool verbose) {
 /* setSafeDist() //{ */
 void AstarPlanner::setSafeDist(const double safe_dist) {
   safe_dist_ = safe_dist;
-  ROS_INFO("[AstarPlanner]: A* safe dist set to %.2f ", safe_dist_);
+  RCLCPP_INFO(this->get_logger(),"[AstarPlanner]: A* safe dist set to %.2f ", safe_dist_);
 }
 //}
 
 /* setAstarAdmissibility() //{ */
 void AstarPlanner::setAstarAdmissibility(const double astar_admissibility) {
   astar_admissibility_ = astar_admissibility;
-  ROS_INFO("[AstarPlanner]: A* admissibility set to %.2f ", astar_admissibility_);
+  RCLCPP_INFO(this->get_logger(),"[AstarPlanner]: A* admissibility set to %.2f ", astar_admissibility_);
 }
 //}
 
@@ -1945,7 +1945,7 @@ double AstarPlanner::nodeDistance(const Node& a, const Node& b) {
 /* isNodeInTheNeighborhood() //{ */
 bool AstarPlanner::isNodeInTheNeighborhood(const octomap::OcTreeKey& n, const octomap::OcTreeKey& center, double dist) {
   double voxel_dist = sqrt(pow(n.k[0] - center.k[0], 2) + pow(n.k[1] - center.k[1], 2) + pow(n.k[2] - center.k[2], 2));
-  /* ROS_INFO("[AstarPlanner]: isNodeInTheNeighborhood: returning: %.2f ", (voxel_dist * resolution_) ); */
+  /* RCLCPP_INFO(this->get_logger(),"[AstarPlanner]: isNodeInTheNeighborhood: returning: %.2f ", (voxel_dist * resolution_) ); */
   return (voxel_dist * resolution_) < dist;
 }
 //}
