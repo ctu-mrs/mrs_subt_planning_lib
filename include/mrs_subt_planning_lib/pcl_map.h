@@ -6,8 +6,8 @@
 #include <iostream>
 #include <memory>
 #include <array>
+#include <string>
 
-// PCL includes
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -15,10 +15,13 @@
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-// OctoMap includes
-#include <octomap_msgs/conversions.h>
-#include <octomap_msgs/msg/octomap.h>
-#include <octomap_msgs/msg/octomap.hpp>
+#include <octomap/octomap.h>
+#include <octomap/OcTree.h>    
+#include <octomap/point3.h> 
+
+//#include <octomap_msgs/conversions.h>
+//#include <octomap_msgs/msg/octomap.hpp>
+// ...existing code...
 
 namespace mrs_subt_planning
 {
@@ -31,7 +34,7 @@ public:
   /**
    * @brief constructor
    */
-  PCLMap(void);
+  PCLMap(rclcpp::Logger logger);
 
   /**
    * @brief destructor
@@ -83,6 +86,7 @@ public:
                                                                  bool ignore_unknown_cells);
 
 private:
+  rclcpp::Logger logger_;
   pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr octree;
   pcl::PointCloud<pcl::PointXYZ>::Ptr                     pcl_cloud;
   /* pcl::search::KdTree<pcl::PointXYZ>::Ptr                 kdtree; */

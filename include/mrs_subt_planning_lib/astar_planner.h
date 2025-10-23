@@ -2,7 +2,7 @@
 #define __ASTAR_PLANNER_H__
 
 #include <nav_msgs/msg/odometry.h>    // really used ?
-#include <rclcpp/rclcpp.h>
+#include <rclcpp/rclcpp.hpp>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/batch_visualizer.h>
 #include <geometry_msgs/msg/pose_array.h>
@@ -10,9 +10,9 @@
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
-#include <visualization_msgs/MarkerArray.h>
+#include <visualization_msgs/msg/marker_array.h>
 #include <iostream>
-#include "mrs_subt_planning_lib/pcl_map.h"
+#include "mrs_subt_planning_lib/include/pcl_map.h"
 
 
 namespace mrs_subt_planning
