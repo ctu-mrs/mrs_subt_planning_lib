@@ -20,17 +20,16 @@ endif()
 set(DEPENDENCIES
   ament_cmake
   rclcpp
-  Eigen3
-  cmake_modules
-  mrs_lib
   octomap_msgs
-  octomap_ros
-  PCL
   pcl_conversions
   pcl_ros
   sensor_msgs
   std_msgs
-  tf
+  tf2
+  tf2_ros
+  Eigen3
+  PCL
+  mrs_lib
 )
 
 set(LIBRARIES
@@ -43,9 +42,6 @@ endforeach()
 
 include_directories(
   include
-  ${rclcpp_INCLUDE_DIRS}
-  ${mrs_lib_INCLUDE_DIRS}
-  ${mrs_msgs_INCLUDE_DIRS}
 )
 
 ## --------------------------------------------------------------
@@ -60,22 +56,21 @@ add_library(MrsSubtPlanningLib_Planner SHARED
   src/pcl_map.cpp
 )
 
-ament_target_dependencies(MrsOctomapServer
+ament_target_dependencies(MrsSubtPlanningLib_Planner
   ${DEPENDENCIES}
 )
 
-## components 
-rclcpp_components_register_nodes(MrsSubtPlanningLib_Planner PLUGIN "MrsSubtPlanningLib_Planner::MrsSubtPlanningLib_Planner" EXECUTABLE MrsSubtPlanningLib_Planner)  # a modifier
-
-target_compile_definitions(MrsSubtPlanningLib_Planner PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
-
+target_include_directories(MrsSubtPlanningLib_Planner PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
 ament_export_include_directories(include)
 
+# prefer imported targets; fallback to variables if needed
 target_link_libraries(MrsSubtPlanningLib_Planner
-  ${catkin_LIBRARIES}
-  ${PCL_LIBRARIES}
-  ${Eigen_LIBRARIES}
-  )
+  Eigen3::Eigen
+  ${PCL_LIBRARIES}   # PCL provides this variable via find_package(PCL)
+)
 
 ## --------------------------------------------------------------
 ## |                           Install                          |
@@ -95,7 +90,12 @@ install(
 
 install(
   DIRECTORY include/
-  DESTINATION .
+  DESTINATION include
+)
+
+install(FILES
+  package.xml
+  DESTINATION share/${PROJECT_NAME}
 )
 
 install(

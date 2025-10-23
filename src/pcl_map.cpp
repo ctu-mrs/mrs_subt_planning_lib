@@ -1,5 +1,5 @@
-#include <rclcpp/rclcpp.hpp>
 #include <mrs_subt_planning_lib/pcl_map.h>
+
 
 using namespace mrs_subt_planning;
 
@@ -73,7 +73,7 @@ void PCLMap::loadMap(const std::string &filepath, double resolution) {
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
   if (pcl::io::loadPCDFile<pcl::PointXYZ>(filepath.c_str(), *cloud) == -1)  // load the file
   {
-    RCLCPP(this->get_logger(),"Couldn't read file %s\n", filepath.c_str());
+    RCLCPP_INFO(this->get_logger(),"Couldn't read file %s\n", filepath.c_str());
     return;
   }
 
@@ -170,12 +170,12 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::octomapToPointcloud(std::shared_ptr<
   std::vector<pcl::PointXYZ> output_pcl;
 
   if (map_limits[0].x() > map_limits[1].x() || map_limits[0].y() > map_limits[1].y() || map_limits[0].z() > map_limits[1].z()) { 
-    RCLCPP(this->get_logger(),"[PCL map]: Octomap cannot be converted. Provided map limits cannot be used for definition of bounding box.");
+    RCLCPP_INFO(this->get_logger(),"[PCL map]: Octomap cannot be converted. Provided map limits cannot be used for definition of bounding box.");
     return nullptr;
   }
 
   if (!input_octree) { 
-    RCLCPP(this->get_logger(),"[PCL map]: Octomap cannot be converted. Empty input octree received."); // FIXME add retunr
+    RCLCPP_INFO(this->get_logger(),"[PCL map]: Octomap cannot be converted. Empty input octree received."); // FIXME add retunr
   }
 
   octomap::OcTreeKey min_key = input_octree->coordToKey(map_limits[0]);
@@ -204,6 +204,6 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr PCLMap::octomapToPointcloud(std::shared_ptr<
     return pclVectorToPointcloud(output_pcl);
   }
 
-  RCLCPP(this->get_logger(),"[PCL map]: Octomap cannot be converted empty pointcloud received.");
+  RCLCPP_INFO(this->get_logger(),"[PCL map]: Octomap cannot be converted empty pointcloud received.");
   return nullptr;
 }

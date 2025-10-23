@@ -2,16 +2,23 @@
 #define __PCL_MAP_H__
 
 #include <vector>
-#include <string.h>
+#include <cstring>
 #include <iostream>
+#include <memory>
+#include <array>
+
+// PCL includes
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
-#include <pcl_ros/point_cloud.h>
 #include <pcl/octree/octree_search.h>
 #include <pcl/kdtree/kdtree_flann.h>
+#include <pcl_conversions/pcl_conversions.h>
+
+// OctoMap includes
 #include <octomap_msgs/conversions.h>
-#include <octomap_msgs/Octomap.h>
+#include <octomap_msgs/msg/octomap.h>
+#include <octomap_msgs/msg/octomap.hpp>
 
 namespace mrs_subt_planning
 {
