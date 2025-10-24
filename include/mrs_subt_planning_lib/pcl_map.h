@@ -17,7 +17,7 @@
 
 #include <octomap/octomap.h>
 #include <octomap/OcTree.h>    
-#include <octomap/point3.h> 
+//#include <octomap/point3d.h> 
 
 //#include <octomap_msgs/conversions.h>
 //#include <octomap_msgs/msg/octomap.hpp>

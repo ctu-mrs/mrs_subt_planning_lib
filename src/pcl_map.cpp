@@ -5,7 +5,7 @@ using namespace mrs_subt_planning;
 
 #define RESOLUTION 0.1f
 
-PCLMap::PCLMap(void) : octree(new pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>(RESOLUTION)) {
+PCLMap::PCLMap("pcl_map") : octree(new pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>(RESOLUTION)) {
   kdtree = pcl::KdTreeFLANN<pcl::PointXYZ>::Ptr(new pcl::KdTreeFLANN<pcl::PointXYZ>);
 }
 
