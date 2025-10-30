@@ -89,40 +89,43 @@ struct NodeHasher
   }
 };
 
-class AstarPriorityQueue : public std::priority_queue<Node, std::vector<Node>, NodeCompare> {
+class AstarPriorityQueue : public std::priority_queue<Node, std::vector<Node>, NodeCompare>{
 public:
-  int conditional_remove(const Node& value, double cost_value) {
-    auto it = std::find_if(this->c.begin(), this->c.end(), node_equal(value));
-    if (it != this->c.end()) {
-      if (it->f_cost > cost_value) {
-        this->c.erase(it);
-        std::make_heap(this->c.begin(), this->c.end(), this->comp);
-        return 1;  // node removed
-      } else {
-        return -1;  // node present but not removed
-      }
-    } else {
-      return 0;  // node not present
+    int conditional_remove(const Node& value, double cost_value) {
+        auto it = std::find_if(this->c.begin(), this->c.end(), node_equal(value));
+        if (it != this->c.end()) {
+            if (it->f_cost > cost_value) {
+                this->c.erase(it);
+                std::make_heap(this->c.begin(), this->c.end(), this->comp);
+                return 1; // node removed
+            }
+            else {
+                return -1; // node present but not removed
+            }
+        }
+        else {
+            return 0; // node not present
+        }
     }
-  }
 
-  std::vector<octomap::point3d> getAllNodes() {
-    std::vector<octomap::point3d> nodes;
-    for (auto p : this->c) {
-      nodes.push_back(p.pose);
+    std::vector<octomap::point3d> getAllNodes(){
+        std::vector<octomap::point3d> nodes;
+        for (const auto& p : this->c){
+            nodes.push_back(p.pose);
+        }
+        return nodes;
     }
-    return nodes;
-  }
 
-  struct node_equal : std::unary_function<Node, bool>
-  {
-    node_equal(const Node& n_a) : n_a_(n_a) {
-    }
-    bool operator()(const Node& n_b) const {
-      return (n_b.key.k[0] == n_a_.key.k[0]) && (n_b.key.k[1] == n_a_.key.k[1]) && (n_b.key.k[2] == n_a_.key.k[2]);
-    }
-    const Node& n_a_;
-  };
+private:
+    struct node_equal{
+        node_equal(const Node& n_a) : n_a_(n_a) {}
+        bool operator()(const Node& n_b) const {
+            return (n_b.key.k[0] == n_a_.key.k[0]) &&
+                   (n_b.key.k[1] == n_a_.key.k[1]) &&
+                   (n_b.key.k[2] == n_a_.key.k[2]);
+        }
+        const Node& n_a_;
+    };
 };
 
 /**
@@ -134,7 +137,7 @@ public:
   /**
    * @brief constructor
    */
-  AstarPlanner();
+  AstarPlanner(const std::shared_ptr<rclcpp::Node>& node, std::string node_name);
 
   /**
    * @brief destructor
@@ -192,6 +195,10 @@ public:
   std::shared_ptr<octomap::OcTree> createPlanningTree(std::shared_ptr<octomap::OcTree> tree, const octomap::point3d& start, double resolution,
                                                       std::vector<double> bbx);
 
+private:
+  std::string                         m_node_name;
+  std::shared_ptr<rclcpp::Node>       m_node;
+    
 protected:
   PCLMap pcl_map_;
 

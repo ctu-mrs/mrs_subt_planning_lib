@@ -7,6 +7,7 @@
 #include <memory>
 #include <array>
 #include <string>
+#include <cfloat>
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
@@ -34,7 +35,8 @@ public:
   /**
    * @brief constructor
    */
-  PCLMap(rclcpp::Logger logger);
+  PCLMap(const std::shared_ptr<rclcpp::Node>& node, std::string node_name);
+  //PCLMap();
 
   /**
    * @brief destructor
@@ -86,7 +88,8 @@ public:
                                                                  bool ignore_unknown_cells);
 
 private:
-  rclcpp::Logger logger_;
+  std::string                         m_node_name;
+  std::shared_ptr<rclcpp::Node>       m_node;
   pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr octree;
   pcl::PointCloud<pcl::PointXYZ>::Ptr                     pcl_cloud;
   /* pcl::search::KdTree<pcl::PointXYZ>::Ptr                 kdtree; */
