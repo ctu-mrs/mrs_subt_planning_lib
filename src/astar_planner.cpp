@@ -6,6 +6,8 @@ using namespace mrs_subt_planning;
 
 AstarPlanner::AstarPlanner(const std::shared_ptr<rclcpp::Node>& node, std::string node_name)
     : pcl_map_(node, node_name) {
+  m_node               = node;
+  m_node_name          = node_name;
   initialized_         = false;
   verbose_             = false;
   astar_admissibility_ = 1.0;
