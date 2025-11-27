@@ -44,7 +44,6 @@ set(DEPENDENCIES
   PCL
   Eigen3
   pluginlib
-  mrs_subt_planning_lib
   )
 
 
@@ -56,52 +55,96 @@ foreach(DEP IN LISTS DEPENDENCIES)
   find_package(${DEP} REQUIRED)
 endforeach()
 
-add_library(MrsSubtPlanningLib_Planner
+## --------------------------------------------------------------
+## |                       compile                              |
+## --------------------------------------------------------------
+
+add_library(MrsSubtPlanningLib_Planner SHARED
   src/pcl_map.cpp
   src/astar_planner.cpp
 )
 
-target_include_directories(MrsSubtPlanningLib_Planner
-  PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-)
+# target_include_directories(MrsSubtPlanningLib_Planner
+#   PUBLIC
+#     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+#     $<INSTALL_INTERFACE:include>
+# )
 
 # ROS2 / ament deps (adds include dirs & links)
 ament_target_dependencies(MrsSubtPlanningLib_Planner
   ${DEPENDENCIES}
 )
 
-target_compile_definitions(MrsSubtPlanningLib_Planner PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+## | -------------------- export interfaces ------------------- |
 
-## --------------------------------------------------------------
-## |                       export plugins                       |
-## --------------------------------------------------------------
+foreach(library IN LISTS LIBRARIES)
+  target_include_directories(${library}
+    PUBLIC
+      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+      $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+  )
+endforeach()
 
-# <package of the base class>, <relative path to the xml>
-pluginlib_export_plugin_description_file(mrs_subt_planning_lib plugins.xml)
+add_library(mrs_subt_planning_lib_mrs_subt_planning_lib INTERFACE)
+
+add_library(mrs_subt_planning_lib::mrs_subt_planning_lib ALIAS mrs_subt_planning_lib_mrs_subt_planning_lib)
+
+set_target_properties(mrs_subt_planning_lib_mrs_subt_planning_lib
+  PROPERTIES
+    EXPORT_NAME mrs_subt_planning_lib
+    OUTPUT_NAME mrs_subt_planning_lib
+)
+
+target_link_libraries(mrs_subt_planning_lib_mrs_subt_planning_lib
+  INTERFACE
+    ${LIBRARIES}
+)
+
+target_include_directories(mrs_subt_planning_lib_mrs_subt_planning_lib
+  INTERFACE
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+
+# add_executable(MrsSubtPlanningLib_Planner
+#   src/astar_planner.cpp
+#   src/pcl_map.cpp
+# )
+
+# target_link_libraries(MrsSubtPlanningLib_Planner
+#   PRIVATE
+#     rclcpp::rclcpp
+#     ${std_msgs_TARGETS}
+#     mrs_lib::mrs_lib
+#     PCL::PCL  
+# )
 
 ## --------------------------------------------------------------
 ## |                           Install                          |
 ## --------------------------------------------------------------
 
-ament_export_libraries(${LIBRARIES})
+ament_export_libraries(
+  ${LIBRARIES}
+)
 
-install(TARGETS MrsSubtPlanningLib_Planner
+install(
+  TARGETS
+    mrs_subt_planning_lib_mrs_subt_planning_lib
+    ${LIBRARIES}
+    ${EXECUTABLES}
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
 
 install(
-  DIRECTORY config
-  DESTINATION share/${PROJECT_NAME}
+  DIRECTORY "include/"
+  DESTINATION "include/${PROJECT_NAME}"
 )
 
-install(
-  DIRECTORY tmux
-  USE_SOURCE_PERMISSIONS
-  DESTINATION share/${PROJECT_NAME}
+ament_export_include_directories(
+  "include/${PROJECT_NAME}"
 )
 
 ament_export_targets(
