@@ -44,11 +44,12 @@ set(DEPENDENCIES
   PCL
   Eigen3
   pluginlib
+  mrs_lib
   )
 
 
 set(LIBRARIES
-  MrsSubtPlanningLib_Planner
+  mrs_subt_planning_lib
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)
@@ -59,19 +60,13 @@ endforeach()
 ## |                       compile                              |
 ## --------------------------------------------------------------
 
-add_library(MrsSubtPlanningLib_Planner SHARED
+add_library(mrs_subt_planning_lib SHARED
   src/pcl_map.cpp
   src/astar_planner.cpp
 )
 
-# target_include_directories(MrsSubtPlanningLib_Planner
-#   PUBLIC
-#     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-#     $<INSTALL_INTERFACE:include>
-# )
-
 # ROS2 / ament deps (adds include dirs & links)
-ament_target_dependencies(MrsSubtPlanningLib_Planner
+ament_target_dependencies(mrs_subt_planning_lib
   ${DEPENDENCIES}
 )
 
@@ -87,7 +82,7 @@ endforeach()
 
 add_library(mrs_subt_planning_lib_mrs_subt_planning_lib INTERFACE)
 
-add_library(mrs_subt_planning_lib::mrs_subt_planning_lib ALIAS mrs_subt_planning_lib_mrs_subt_planning_lib)
+# add_library(mrs_subt_planning_lib::mrs_subt_planning_lib ALIAS mrs_subt_planning_lib_mrs_subt_planning_lib)
 
 set_target_properties(mrs_subt_planning_lib_mrs_subt_planning_lib
   PROPERTIES
@@ -106,12 +101,14 @@ target_include_directories(mrs_subt_planning_lib_mrs_subt_planning_lib
     $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
 
-# add_executable(MrsSubtPlanningLib_Planner
+# add_executable(mrs_subt_planning_lib
 #   src/astar_planner.cpp
 #   src/pcl_map.cpp
 # )
 
-# target_link_libraries(MrsSubtPlanningLib_Planner
+# target_link_libraries(mrs_subt_planning_lib PRIVATE mrs_subt_planning_lib)
+
+# target_link_libraries(mrs_subt_planning_lib
 #   PRIVATE
 #     rclcpp::rclcpp
 #     ${std_msgs_TARGETS}
