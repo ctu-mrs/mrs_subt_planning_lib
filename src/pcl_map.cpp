@@ -169,7 +169,7 @@ bool PCLMap::checkDistanceFromNearestPoint(pcl::PointXYZ point, double safe_dist
 {
   std::vector<int> indices(100);
   std::vector<float> sqr_distances(100);
-  bool res = false;
+
   if (kd_tree_initialized)
   {
     int n_found = kdtree->radiusSearch(point, safe_dist_xy, indices, sqr_distances, 100);
