@@ -79,16 +79,8 @@ install(
   DESTINATION "include/${PROJECT_NAME}"
 )
 
-ament_export_include_directories(
-  "include/${PROJECT_NAME}"
-)
-
 ament_export_targets(
   export_${PROJECT_NAME} HAS_LIBRARY_TARGET
-)
-
-ament_export_libraries(
-  ${LIBRARIES}
 )
 
 ament_export_dependencies(
