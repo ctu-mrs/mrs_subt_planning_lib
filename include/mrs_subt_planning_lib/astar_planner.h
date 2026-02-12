@@ -150,7 +150,7 @@ namespace mrs_subt_planning
     /**
      * @brief constructor
      */
-    AstarPlanner(const std::shared_ptr<rclcpp::Node>& node);
+    AstarPlanner(const rclcpp::Node::SharedPtr node);
 
     /**
      * @brief destructor

@@ -24,7 +24,7 @@ namespace mrs_subt_planning
     /**
      * @brief constructor
      */
-    PCLMap(void);
+    PCLMap(const rclcpp::Node::SharedPtr node);
     // PCLMap();
 
     /**

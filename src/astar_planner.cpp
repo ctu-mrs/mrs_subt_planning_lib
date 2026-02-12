@@ -2,9 +2,8 @@
 
 using namespace mrs_subt_planning;
 
-AstarPlanner::AstarPlanner(const std::shared_ptr<rclcpp::Node>& node) : pcl_map_()
+AstarPlanner::AstarPlanner(const rclcpp::Node::SharedPtr node) : m_node(node), pcl_map_(node)
 {
-  m_node = node;
   initialized_ = false;
   verbose_ = false;
   astar_admissibility_ = 1.0;
